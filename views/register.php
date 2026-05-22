@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Create Account — VantageMarket</title>
   <meta name="description" content="Join VantageMarket to start shopping, track orders, and enjoy member-exclusive benefits." />
-  <link rel="stylesheet" href="/views/auth.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
 </head>
 <body>
 <div class="auth-page">

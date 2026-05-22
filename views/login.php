@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign In — VantageMarket</title>
   <meta name="description" content="Sign in to your VantageMarket account to shop, track orders, and manage your profile." />
-  <link rel="stylesheet" href="/views/auth.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
 </head>
 <body>
 <div class="auth-page">

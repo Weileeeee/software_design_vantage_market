@@ -18,7 +18,7 @@ $initials  = substr($initials, 0, 2) ?: 'U';
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — VantageMarket</title>
   <meta name="description" content="Your VantageMarket account dashboard." />
-  <link rel="stylesheet" href="/views/auth.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
 </head>
 <body>
 <div class="dashboard-page">
