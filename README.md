@@ -29,9 +29,9 @@ assignment/
 ├── public/
 │   └── index.php                 # App entry point, routing table & HTTPS enforcement
 ├── src/
-│   ├── Auth controllers/
+│   ├── Controllers/
 │   │   └── AuthController.php    # Handles HTTP inputs, validation, and registers session flows
-│   ├── Auth MiddleWear/
+│   ├── Middleware/
 │   │   └── AuthMiddleware.php    # Redirects/intercepts routes based on authorization state
 │   ├── Config/
 │   │   └── Database.php          # [SINGLETON] Database PDO Connection wrapper
