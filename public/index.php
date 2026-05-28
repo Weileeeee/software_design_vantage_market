@@ -35,56 +35,74 @@ match (true) {
 
     // Auth routes (guest-only pages redirect away if already logged in)
     $path === '/register'        && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            // Render your React frontend or a PHP template here
-            include __DIR__ . '/../views/register.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        // Render your React frontend or a PHP template here
+        include __DIR__ . '/../views/register.php';
+    })(),
 
     $path === '/register'        && $method === 'POST'
-        => $auth->register(),
+    => $auth->register(),
 
     $path === '/login'           && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            include __DIR__ . '/../views/login.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        include __DIR__ . '/../views/login.php';
+    })(),
 
     $path === '/login'           && $method === 'POST'
-        => $auth->login(),
+    => $auth->login(),
 
     $path === '/logout'          && $method === 'POST'
-        => $auth->logout(),
+    => $auth->logout(),
 
     $path === '/forgot-password' && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            include __DIR__ . '/../views/forgot_password.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        include __DIR__ . '/../views/forgot_password.php';
+    })(),
 
     $path === '/forgot-password' && $method === 'POST'
-        => $auth->forgotPassword(),
+    => $auth->forgotPassword(),
 
     $path === '/reset-password'  && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            include __DIR__ . '/../views/reset_password.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        include __DIR__ . '/../views/reset_password.php';
+    })(),
 
     $path === '/reset-password'  && $method === 'POST'
-        => $auth->resetPassword(),
+    => $auth->resetPassword(),
 
     // Protected API — returns current user info
     $path === '/api/me'          && $method === 'GET'
-        => $auth->me(),
+    => $auth->me(),
 
     // Protected example route
     $path === '/dashboard'
-        => (function () use ($middleware): void {
-            $middleware->requireAuth('/dashboard');
-            include __DIR__ . '/../views/dashboard.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->requireAuth('/dashboard');
+        include __DIR__ . '/../views/dashboard.php';
+    })(),
+    // Protected example route
+    $path === '/dashboard'
+    => (function () use ($middleware): void {
+        $middleware->requireAuth('/dashboard');
+        include __DIR__ . '/../views/dashboard.php';
+    })(),
 
+    // ==========================================================
+    // Product Catalog & Filters
+    // ==========================================================
+    $path === '/catalog' && $method === 'GET'
+    => (function () use ($container): void {
+        // Get the raw PDO connection out of your team's bootstrap container
+        $db = $container['db'] ?? \VantageMarket\Config\Database::getInstance();
+
+        // Call your controller logic dynamically
+        $controller = new \VantageMarket\Controllers\CatalogController($db);
+        $controller->index();
+    })(),
     // 404 catch-all
     default => (function (): void {
         http_response_code(404);
