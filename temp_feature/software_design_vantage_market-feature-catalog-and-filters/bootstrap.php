@@ -3,7 +3,6 @@
 // VantageMarket — Bootstrap
 // Wires all dependencies together (poor-man's DI container)
 // DIP: AuthController depends on abstractions, not concretions
-// Patterns: Singleton (Database), Observer (Stock), Strategy (Payments)
 // =============================================================
 
 declare(strict_types=1);
@@ -41,13 +40,7 @@ use VantageMarket\Services\{
     SessionManager,
     UserRegistrationService,
     UserLoginService,
-    PasswordResetService,
-    // Observer pattern
-    ProductRepository,
-    CartRepository,
-    StockObserverRepository,
-    CartObserver,
-    ProductStockSubject
+    PasswordResetService
 };
 
 $validator   = new UserValidator();
@@ -69,29 +62,8 @@ $authController = new AuthController(
 
 $authMiddleware = new AuthMiddleware($session, $loginService);
 
-// ----------------------------------------------------------
-// Observer Pattern — Stock Notification Subsystem
-// ----------------------------------------------------------
-// Dependency graph (bottom-up):
-//   StockObserverRepository  (no deps)
-//   CartRepository           (no deps)
-//   ProductRepository        (no deps)
-//   CartObserver             ← CartRepository, StockObserverRepository
-//   ProductStockSubject      ← StockObserverRepository, CartObserver
-
-$stockObserverRepo = new StockObserverRepository();
-$cartRepository    = new CartRepository();
-$productRepository = new ProductRepository();
-
-$cartObserver  = new CartObserver($cartRepository, $stockObserverRepo);
-$stockSubject  = new ProductStockSubject($stockObserverRepo, $cartObserver);
-
 return [
-    'auth'            => $authController,
-    'middleware'      => $authMiddleware,
-    'session'         => $session,
-    // Observer pattern services (available to controllers/routes)
-    'stockSubject'    => $stockSubject,
-    'cartRepository'  => $cartRepository,
-    'productRepository' => $productRepository,
+    'auth'       => $authController,
+    'middleware' => $authMiddleware,
+    'session'    => $session,
 ];
