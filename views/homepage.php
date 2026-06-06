@@ -51,10 +51,10 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
       <a href="/" class="logo">
         VANTAGE<span class="logo-highlight">MARKET</span>
       </a>
-      <div class="search-bar">
-        <input type="text" placeholder="Search for products...">
-        <button><i class="fa fa-search"></i></button>
-      </div>
+      <form action="/catalog" method="GET" class="search-bar">
+        <input type="text" name="search" placeholder="Search for products...">
+        <button type="submit"><i class="fa fa-search"></i></button>
+      </form>
       <div class="customer-service">
         <span class="cs-title">Customer Service</span>
         <span class="cs-phone">+012 345 6789</span>
@@ -66,9 +66,24 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
   <div class="navbar">
     <div class="container d-flex align-center justify-between">
       <div class="d-flex align-center">
-        <div class="nav-categories">
-          <span><i class="fa fa-bars" style="margin-right:10px;"></i> Categories</span>
-          <i class="fa fa-angle-down"></i>
+        <div class="nav-cat-wrapper">
+          <div class="nav-categories" id="navCategoriesBtn" onclick="toggleCategoryDropdown()">
+            <span><i class="fa fa-bars" style="margin-right:10px;"></i> Categories</span>
+            <i class="fa fa-angle-down" id="navCategoriesArrow"></i>
+          </div>
+          <!-- Category Dropdown -->
+          <div class="nav-categories-dropdown" id="navCategoriesDropdown">
+            <?php foreach ($categories as $cat): ?>
+              <a href="/catalog?category[]=<?= $cat['category_id'] ?>" class="nav-cat-link">
+                <i class="fas fa-tag" style="margin-right:8px; color:var(--primary);"></i>
+                <?= htmlspecialchars($cat['category_name']) ?>
+                <span class="nav-cat-count"><?= $cat['product_count'] ?></span>
+              </a>
+            <?php endforeach; ?>
+            <a href="/catalog" class="nav-cat-link nav-cat-all">
+              <i class="fas fa-th" style="margin-right:8px;"></i> All Products
+            </a>
+          </div>
         </div>
         <div class="nav-links">
           <a href="#" style="color:var(--primary)">Home</a>
@@ -282,5 +297,23 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
       window.history.replaceState({}, document.title, '/');
     </script>
   <?php endif; ?>
+
+  <script>
+    function toggleCategoryDropdown() {
+      const dropdown = document.getElementById('navCategoriesDropdown');
+      const arrow = document.getElementById('navCategoriesArrow');
+      const isOpen = dropdown.classList.toggle('open');
+      arrow.style.transform = isOpen ? 'rotate(180deg)' : '';
+    }
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      const btn = document.getElementById('navCategoriesBtn');
+      const dropdown = document.getElementById('navCategoriesDropdown');
+      if (!btn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('open');
+        document.getElementById('navCategoriesArrow').style.transform = '';
+      }
+    });
+  </script>
 </body>
 </html>

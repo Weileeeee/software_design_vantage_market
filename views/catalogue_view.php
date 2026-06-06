@@ -140,9 +140,33 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
   <div class="navbar">
     <div class="container d-flex align-center justify-between">
       <div class="d-flex align-center">
-        <div class="nav-categories">
-          <span><i class="fa fa-bars" style="margin-right:10px;"></i> Categories</span>
-          <i class="fa fa-angle-down"></i>
+        <div class="nav-cat-wrapper">
+          <div class="nav-categories" id="navCategoriesBtn" onclick="toggleCategoryDropdown()">
+            <span><i class="fa fa-bars" style="margin-right:10px;"></i> Categories</span>
+            <i class="fa fa-angle-down" id="navCategoriesArrow"></i>
+          </div>
+          <!-- Category Dropdown -->
+          <?php
+            $db_for_nav = \VantageMarket\Config\Database::getInstance();
+            $navCategories = $db_for_nav->query("
+              SELECT c.*, COUNT(p.product_id) as product_count
+              FROM Categories c
+              LEFT JOIN Products p ON c.category_id = p.category_id
+              GROUP BY c.category_id
+            ")->fetchAll(PDO::FETCH_ASSOC);
+          ?>
+          <div class="nav-categories-dropdown" id="navCategoriesDropdown">
+            <?php foreach ($navCategories as $cat): ?>
+              <a href="/catalog?category[]=<?= $cat['category_id'] ?>" class="nav-cat-link">
+                <i class="fas fa-tag" style="margin-right:8px; color:var(--primary);"></i>
+                <?= htmlspecialchars($cat['category_name']) ?>
+                <span class="nav-cat-count"><?= $cat['product_count'] ?></span>
+              </a>
+            <?php endforeach; ?>
+            <a href="/catalog" class="nav-cat-link nav-cat-all">
+              <i class="fas fa-th" style="margin-right:8px;"></i> All Products
+            </a>
+          </div>
         </div>
         <div class="nav-links">
           <a href="/">Home</a>
@@ -314,3 +338,20 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
   </div>
 </body>
 </html>
+
+<script>
+  function toggleCategoryDropdown() {
+    const dropdown = document.getElementById('navCategoriesDropdown');
+    const arrow = document.getElementById('navCategoriesArrow');
+    const isOpen = dropdown.classList.toggle('open');
+    arrow.style.transform = isOpen ? 'rotate(180deg)' : '';
+  }
+  document.addEventListener('click', function(e) {
+    const btn = document.getElementById('navCategoriesBtn');
+    const dropdown = document.getElementById('navCategoriesDropdown');
+    if (!btn.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.classList.remove('open');
+      document.getElementById('navCategoriesArrow').style.transform = '';
+    }
+  });
+</script>
