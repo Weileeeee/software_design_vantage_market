@@ -7,6 +7,9 @@
 
 declare(strict_types=1);
 
+// Import the CheckoutController so the router knows where it is
+use VantageMarket\Controllers\CheckoutController;
+
 $container = require_once __DIR__ . '/../bootstrap.php';
 $auth = $container['auth'];
 $middleware = $container['middleware'];
@@ -37,208 +40,235 @@ match (true) {
     // Homepage & Observer Interactive Demo
     // ----------------------------------------------------------
     $path === '/' && $method === 'GET'
-        => (function () use ($container): void {
-            /** @var \VantageMarket\Services\SessionManager $session */
-            $session = $container['session'];
-            $session->start();
-            
-            $productRepo = $container['productRepository'];
-            $cartRepo = $container['cartRepository'];
-            
-            // Get or create guest cart if not logged in
-            if ($session->isAuthenticated()) {
-                $cart = $cartRepo->findOrCreateForUser($session->currentUserId());
-                $userType = 'User';
-                $userName = $_SESSION['user_name'];
-            } else {
-                $cart = $cartRepo->findOrCreateForSession(session_id());
-                $userType = 'Guest';
-                $userName = 'Guest User';
-            }
-            
-            $products = $productRepo->findAllActive();
-            $cartItems = $cartRepo->getItems($cart->cartId);
-            
-            // Fetch categories for the homepage
-            $db = \VantageMarket\Config\Database::getInstance();
-            $categories = $db->query("
+    => (function () use ($container): void {
+        /** @var \VantageMarket\Services\SessionManager $session */
+        $session = $container['session'];
+        $session->start();
+
+        $productRepo = $container['productRepository'];
+        $cartRepo = $container['cartRepository'];
+
+        // Get or create guest cart if not logged in
+        if ($session->isAuthenticated()) {
+            $cart = $cartRepo->findOrCreateForUser($session->currentUserId());
+            $userType = 'User';
+            $userName = $_SESSION['user_name'];
+        } else {
+            $cart = $cartRepo->findOrCreateForSession(session_id());
+            $userType = 'Guest';
+            $userName = 'Guest User';
+        }
+
+        $products = $productRepo->findAllActive();
+        $cartItems = $cartRepo->getItems($cart->cartId);
+
+        // Fetch categories for the homepage
+        $db = \VantageMarket\Config\Database::getInstance();
+        $categories = $db->query("
                 SELECT c.*, COUNT(p.product_id) as product_count 
                 FROM Categories c 
                 LEFT JOIN Products p ON c.category_id = p.category_id 
                 GROUP BY c.category_id
             ")->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Fetch observer subsystem data (simulate query to Stock_Observers)
-            $stmt = $db->query('
+
+        // Fetch observer subsystem data (simulate query to Stock_Observers)
+        $stmt = $db->query('
                 SELECT so.*, p.title as product_title, sc.session_id, sc.user_id, u.first_name, u.last_name
                 FROM Stock_Observers so
                 JOIN Products p ON p.product_id = so.product_id
                 JOIN Shopping_Carts sc ON sc.cart_id = so.cart_id
                 LEFT JOIN Users u ON u.user_id = sc.user_id
             ');
-            $activeObservers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            include __DIR__ . '/../views/homepage.php';
-        })(),
+        $activeObservers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        include __DIR__ . '/../views/homepage.php';
+    })(),
 
     $path === '/cart/add' && $method === 'POST'
-        => (function () use ($container): void {
-            $productId = (int) ($_POST['product_id'] ?? 0);
-            if (!$productId) { header('Location: /'); exit; }
-            
-            /** @var \VantageMarket\Services\SessionManager $session */
-            $session = $container['session'];
-            $session->start();
-            
-            $cartRepo = $container['cartRepository'];
-            $cart = $session->isAuthenticated() 
-                ? $cartRepo->findOrCreateForUser($session->currentUserId())
-                : $cartRepo->findOrCreateForSession(session_id());
-            
-            // Add item to cart
-            $cartRepo->addItem($cart->cartId, $productId, 1);
+    => (function () use ($container): void {
+        $productId = (int) ($_POST['product_id'] ?? 0);
+        if (!$productId) {
+            header('Location: /');
+            exit;
+        }
+
+        /** @var \VantageMarket\Services\SessionManager $session */
+        $session = $container['session'];
+        $session->start();
+
+        $cartRepo = $container['cartRepository'];
+        $cart = $session->isAuthenticated()
+            ? $cartRepo->findOrCreateForUser($session->currentUserId())
+            : $cartRepo->findOrCreateForSession(session_id());
+
+        // Add item to cart
+        $cartRepo->addItem($cart->cartId, $productId, 1);
             
             // -------------------------------------------------------
             // OBSERVER PATTERN IN ACTION: Attach cart as observer
             // -------------------------------------------------------
-            /** @var \VantageMarket\Services\ProductStockSubject $stockSubject */
-            $stockSubject = $container['stockSubject'];
-            $stockSubject->attach($productId, $cart->cartId);
-            
-            header('Location: /?action=added');
-        })(),
+        /** @var \VantageMarket\Services\ProductStockSubject $stockSubject */
+        $stockSubject = $container['stockSubject'];
+        $stockSubject->attach($productId, $cart->cartId);
+
+        header('Location: /?action=added');
+    })(),
 
     $path === '/cart/remove' && $method === 'POST'
-        => (function () use ($container): void {
-            $productId = (int) ($_POST['product_id'] ?? 0);
-            if (!$productId) { header('Location: /'); exit; }
-            
-            /** @var \VantageMarket\Services\SessionManager $session */
-            $session = $container['session'];
-            $session->start();
-            
-            $cartRepo = $container['cartRepository'];
-            $cart = $session->isAuthenticated() 
-                ? $cartRepo->findOrCreateForUser($session->currentUserId())
-                : $cartRepo->findOrCreateForSession(session_id());
-            
-            // Remove item from cart
-            $cartRepo->removeItem($cart->cartId, $productId);
+    => (function () use ($container): void {
+        $productId = (int) ($_POST['product_id'] ?? 0);
+        if (!$productId) {
+            header('Location: /');
+            exit;
+        }
+
+        /** @var \VantageMarket\Services\SessionManager $session */
+        $session = $container['session'];
+        $session->start();
+
+        $cartRepo = $container['cartRepository'];
+        $cart = $session->isAuthenticated()
+            ? $cartRepo->findOrCreateForUser($session->currentUserId())
+            : $cartRepo->findOrCreateForSession(session_id());
+
+        // Remove item from cart
+        $cartRepo->removeItem($cart->cartId, $productId);
             
             // -------------------------------------------------------
             // OBSERVER PATTERN IN ACTION: Detach cart observer
             // -------------------------------------------------------
-            /** @var \VantageMarket\Services\ProductStockSubject $stockSubject */
-            $stockSubject = $container['stockSubject'];
-            $stockSubject->detach($productId, $cart->cartId);
-            
-            header('Location: /?action=removed');
-        })(),
+        /** @var \VantageMarket\Services\ProductStockSubject $stockSubject */
+        $stockSubject = $container['stockSubject'];
+        $stockSubject->detach($productId, $cart->cartId);
+
+        header('Location: /?action=removed');
+    })(),
 
     $path === '/product/update-stock' && $method === 'POST'
-        => (function () use ($container): void {
-            $productId = (int) ($_POST['product_id'] ?? 0);
-            $newStock = (int) ($_POST['stock_level'] ?? 0);
-            if (!$productId) { header('Location: /'); exit; }
-            
-            $productRepo = $container['productRepository'];
-            $productRepo->updateStock($productId, $newStock);
+    => (function () use ($container): void {
+        $productId = (int) ($_POST['product_id'] ?? 0);
+        $newStock = (int) ($_POST['stock_level'] ?? 0);
+        if (!$productId) {
+            header('Location: /');
+            exit;
+        }
+
+        $productRepo = $container['productRepository'];
+        $productRepo->updateStock($productId, $newStock);
             
             // -------------------------------------------------------
             // OBSERVER PATTERN IN ACTION: Trigger stock notification
             // -------------------------------------------------------
-            /** @var \VantageMarket\Services\ProductStockSubject $stockSubject */
-            $stockSubject = $container['stockSubject'];
-            $stockSubject->notify($productId, $newStock);
-            
-            if ($newStock === 0) {
-                header('Location: /?action=stock_out');
-            } else {
-                header('Location: /?action=stock_updated');
-            }
-        })(),
+        /** @var \VantageMarket\Services\ProductStockSubject $stockSubject */
+        $stockSubject = $container['stockSubject'];
+        $stockSubject->notify($productId, $newStock);
+
+        if ($newStock === 0) {
+            header('Location: /?action=stock_out');
+        } else {
+            header('Location: /?action=stock_updated');
+        }
+    })(),
 
     // ==========================================================
     // Product Catalog & Filters
     // ==========================================================
     $path === '/catalog' && $method === 'GET'
-        => (function () use ($container): void {
+    => (function () use ($container): void {
             // Get session info for the header
-            /** @var \VantageMarket\Services\SessionManager $session */
-            $session = $container['session'];
-            $session->start();
-            $cartRepo = $container['cartRepository'];
-            
-            // Get or create guest cart if not logged in
-            global $cartItems, $userType, $userName;
-            if ($session->isAuthenticated()) {
-                $cart = $cartRepo->findOrCreateForUser($session->currentUserId());
-                $userType = 'User';
-                $userName = $_SESSION['user_name'];
-            } else {
-                $cart = $cartRepo->findOrCreateForSession(session_id());
-                $userType = 'Guest';
-                $userName = 'Guest User';
-            }
-            $cartItems = $cartRepo->getItems($cart->cartId);
+        /** @var \VantageMarket\Services\SessionManager $session */
+        $session = $container['session'];
+        $session->start();
+        $cartRepo = $container['cartRepository'];
 
-            // Fetch DB instance and call CatalogController
-            $db = \VantageMarket\Config\Database::getInstance();
-            $controller = new \VantageMarket\Controllers\CatalogController($db);
-            $controller->index();
-        })(),
+        // Get or create guest cart if not logged in
+        global $cartItems, $userType, $userName;
+        if ($session->isAuthenticated()) {
+            $cart = $cartRepo->findOrCreateForUser($session->currentUserId());
+            $userType = 'User';
+            $userName = $_SESSION['user_name'];
+        } else {
+            $cart = $cartRepo->findOrCreateForSession(session_id());
+            $userType = 'Guest';
+            $userName = 'Guest User';
+        }
+        $cartItems = $cartRepo->getItems($cart->cartId);
 
-    // Auth routes (guest-only pages redirect away if already logged in)
+        // Fetch DB instance and call CatalogController
+        $db = \VantageMarket\Config\Database::getInstance();
+        $controller = new \VantageMarket\Controllers\CatalogController($db);
+        $controller->index();
+    })(),
+
+    // ==========================================================
+    // Checkout Flow (UC06)
+    // ==========================================================
+    $path === '/checkout' && $method === 'GET'
+    => (function () use ($container, $middleware): void {
+        $middleware->requireAuth('/checkout'); // Must be logged in to checkout!
+        $db = \VantageMarket\Config\Database::getInstance();
+        $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
+        $controller->index();
+    })(),
+
+    $path === '/checkout' && $method === 'POST'
+    => (function () use ($container, $middleware): void {
+        $middleware->requireAuth('/checkout'); // Must be logged in to checkout!
+        $db = \VantageMarket\Config\Database::getInstance();
+        $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
+        $controller->processCheckout();
+    })(),
+
+    // Auth routes
     $path === '/register'        && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            // Render your React frontend or a PHP template here
-            include __DIR__ . '/../views/register.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        include __DIR__ . '/../views/register.php';
+    })(),
 
     $path === '/register'        && $method === 'POST'
-        => $auth->register(),
+    => $auth->register(),
 
     $path === '/login'           && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            include __DIR__ . '/../views/login.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        include __DIR__ . '/../views/login.php';
+    })(),
 
     $path === '/login'           && $method === 'POST'
-        => $auth->login(),
+    => $auth->login(),
 
     $path === '/logout'          && $method === 'POST'
-        => $auth->logout(),
+    => $auth->logout(),
 
     $path === '/forgot-password' && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            include __DIR__ . '/../views/forgot_password.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        include __DIR__ . '/../views/forgot_password.php';
+    })(),
 
     $path === '/forgot-password' && $method === 'POST'
-        => $auth->forgotPassword(),
+    => $auth->forgotPassword(),
 
     $path === '/reset-password'  && $method === 'GET'
-        => (function () use ($middleware): void {
-            $middleware->redirectIfAuthenticated();
-            include __DIR__ . '/../views/reset_password.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->redirectIfAuthenticated();
+        include __DIR__ . '/../views/reset_password.php';
+    })(),
 
     $path === '/reset-password'  && $method === 'POST'
-        => $auth->resetPassword(),
+    => $auth->resetPassword(),
 
-    // Protected API — returns current user info
+    // Protected API
     $path === '/api/me'          && $method === 'GET'
-        => $auth->me(),
+    => $auth->me(),
 
     // Protected example route
     $path === '/dashboard'
-        => (function () use ($middleware): void {
-            $middleware->requireAuth('/dashboard');
-            include __DIR__ . '/../views/dashboard.php';
-        })(),
+    => (function () use ($middleware): void {
+        $middleware->requireAuth('/dashboard');
+        include __DIR__ . '/../views/dashboard.php';
+    })(),
 
     // 404 catch-all
     default => (function (): void {
