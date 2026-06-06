@@ -265,7 +265,7 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Our Shop</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shop Detail</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shopping Cart</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
+            <li><a href="/checkout"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Contact Us</a></li>
           </ul>
         </div>
@@ -276,7 +276,7 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Our Shop</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shop Detail</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shopping Cart</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
+            <li><a href="/checkout"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Contact Us</a></li>
           </ul>
         </div>

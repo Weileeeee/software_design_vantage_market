@@ -135,6 +135,92 @@ match (true) {
             header('Location: /?action=removed');
         })(),
 
+    // ==========================================================
+    // Checkout & Payment Processing (Strategy Pattern)
+    // ==========================================================
+    $path === '/checkout' && $method === 'GET'
+        => (function () use ($container): void {
+            /** @var \VantageMarket\Services\SessionManager $session */
+            $session = $container['session'];
+            $session->start();
+            $cartRepo = $container['cartRepository'];
+            
+            $cart = $session->isAuthenticated() 
+                ? $cartRepo->findOrCreateForUser($session->currentUserId())
+                : $cartRepo->findOrCreateForSession(session_id());
+            $cartItems = $cartRepo->getItems($cart->cartId);
+            
+            if (empty($cartItems)) {
+                header('Location: /?action=cart_empty');
+                exit;
+            }
+            
+            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
+            $userName = $_SESSION['user_name'] ?? 'Guest User';
+            
+            include __DIR__ . '/../views/checkout.php';
+        })(),
+
+    $path === '/checkout/process' && $method === 'POST'
+        => (function () use ($container): void {
+            /** @var \VantageMarket\Services\SessionManager $session */
+            $session = $container['session'];
+            $session->start();
+            $cartRepo = $container['cartRepository'];
+            
+            $cart = $session->isAuthenticated() 
+                ? $cartRepo->findOrCreateForUser($session->currentUserId())
+                : $cartRepo->findOrCreateForSession(session_id());
+            $cartItems = $cartRepo->getItems($cart->cartId);
+            
+            if (empty($cartItems)) {
+                header('Location: /');
+                exit;
+            }
+            
+            $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0.0);
+            $paymentMethod = $_POST['payment_method'] ?? '';
+            
+            // Strategy Pattern: Client instantiates the correct concrete strategy
+            $strategy = null;
+            if ($paymentMethod === 'credit_card') {
+                $strategy = new \VantageMarket\Strategy\CreditCardPayment($_POST['card_number'] ?? '0000000000000000');
+            } elseif ($paymentMethod === 'ewallet') {
+                $strategy = new \VantageMarket\Strategy\EWalletPayment($_POST['wallet_id'] ?? 'UnknownWallet');
+            } elseif ($paymentMethod === 'fpx') {
+                $strategy = new \VantageMarket\Strategy\FPXBankingPayment($_POST['bank_code'] ?? 'MBB0228');
+            } elseif ($paymentMethod === 'cod') {
+                $strategy = new \VantageMarket\Strategy\CashOnDeliveryPayment();
+            }
+            
+            // Context Class
+            $checkoutSession = new \VantageMarket\Services\CheckoutSession($cartTotal);
+            if ($strategy) {
+                $checkoutSession->setPaymentStrategy($strategy);
+            }
+            
+            // Start output buffering to capture the echo statements for the view
+            ob_start();
+            $success = $checkoutSession->executeCheckout();
+            $checkoutLog = ob_get_clean();
+            
+            if ($success) {
+                // Clear the cart
+                $cartRepo->clearCart($cart->cartId);
+                // Also detach observer
+                $stockSubject = $container['stockSubject'];
+                foreach ($cartItems as $item) {
+                    $stockSubject->detach((int)$item['product_id'], $cart->cartId);
+                }
+            }
+            
+            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
+            $userName = $_SESSION['user_name'] ?? 'Guest User';
+            
+            // Show the result in the checkout view
+            include __DIR__ . '/../views/checkout.php';
+        })(),
+
     $path === '/product/update-stock' && $method === 'POST'
         => (function () use ($container): void {
             $productId = (int) ($_POST['product_id'] ?? 0);
