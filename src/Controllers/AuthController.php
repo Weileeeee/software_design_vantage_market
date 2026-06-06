@@ -45,7 +45,7 @@ final class AuthController
             $this->jsonSuccess([
                 'message' => 'Registration successful! Welcome to VantageMarket.',
                 'user'    => $user->toPublicArray(),
-                'redirect'=> '/dashboard',
+                'redirect'=> '/',
             ], 201);
 
         } catch (ValidationException $e) {
@@ -77,7 +77,7 @@ final class AuthController
             $this->jsonSuccess([
                 'message'  => 'Login successful.',
                 'user'     => $user->toPublicArray(),
-                'redirect' => $_SESSION['intended_url'] ?? '/dashboard',
+                'redirect' => $_SESSION['intended_url'] ?? '/',
             ]);
 
         } catch (ValidationException $e) {
@@ -109,7 +109,16 @@ final class AuthController
             $this->loginService->logout($userId);
         }
 
-        $this->jsonSuccess(['message' => 'You have been logged out.', 'redirect' => '/']);
+        // If called via AJAX/fetch, return JSON; otherwise redirect directly
+        $wantsJson = ($_SERVER['HTTP_ACCEPT'] ?? '') === 'application/json'
+            || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
+
+        if ($wantsJson) {
+            $this->jsonSuccess(['message' => 'You have been logged out.', 'redirect' => '/']);
+        } else {
+            header('Location: /');
+            exit;
+        }
     }
 
     // ----------------------------------------------------------

@@ -241,7 +241,7 @@
 
       if (data.success) {
         showAlert('success', data.message ?? 'Account created! Redirecting…');
-        setTimeout(() => { window.location.href = data.redirect ?? '/dashboard'; }, 800);
+        setTimeout(() => { window.location.href = data.redirect ?? '/'; }, 800);
       } else {
         setLoading(false);
         if (data.errors) {

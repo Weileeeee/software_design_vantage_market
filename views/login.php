@@ -163,12 +163,20 @@
         body,
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (_) {
+        // Response wasn't JSON — server may not be routing through index.php
+        setLoading(false);
+        showAlert('error', 'Server error. Please ensure the app is running through index.php.');
+        return;
+      }
 
       if (data.success) {
         showAlert('success', data.message ?? 'Login successful!');
         setTimeout(() => {
-          window.location.href = data.redirect ?? '/dashboard';
+          window.location.href = data.redirect ?? '/';
         }, 500);
       } else {
         setLoading(false);
@@ -180,13 +188,20 @@
             setFieldError(field, message);
           });
         } else {
-          showAlert('error', data.message ?? 'Login failed. Please try again.');
+          // Show specific messages for common HTTP status codes
+          if (res.status === 401) {
+            showAlert('error', 'Invalid email or password. Please try again.');
+          } else if (res.status === 423) {
+            showAlert('error', data.message ?? 'Account locked due to too many failed attempts. Please try again later.');
+          } else {
+            showAlert('error', data.message ?? 'Login failed. Please try again.');
+          }
         }
       }
 
     } catch (err) {
       setLoading(false);
-      showAlert('error', 'Network error. Please check your connection and try again.');
+      showAlert('error', 'Unable to connect to the server. Please check your connection and try again.');
     }
   });
 

@@ -5,7 +5,9 @@
 // =============================================================
 declare(strict_types=1);
 
-global $cartItems, $userType, $userName;
+/** @var array $cartItems */
+/** @var string $userType */
+/** @var string $userName */
 $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0.0);
 ?>
 <!DOCTYPE html>
@@ -95,6 +97,28 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
     @media (max-width: 991px) {
       .catalog-layout { grid-template-columns: 1fr; }
     }
+    .btn-favourite {
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      border: 1px solid var(--border-color);
+      background: white;
+      border-radius: 2px;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s ease;
+    }
+    .btn-favourite:hover,
+    .btn-favourite.active {
+      color: #ff6b6b;
+      border-color: #ff6b6b;
+      background: #fff5f5;
+    }
+    .btn-favourite.active .fas { font-weight: 900; }
   </style>
 </head>
 <body>
@@ -176,16 +200,16 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
             <a href="/login">Sign In</a>
             <a href="/register">Register</a>
           <?php else: ?>
-            <a href="/dashboard">Dashboard</a>
+            <a href="/">Homepage</a>
           <?php endif; ?>
         </div>
       </div>
       <div class="nav-icons">
-        <a href="#" class="nav-icon">
+        <a href="/likes" class="nav-icon" title="My Likes">
           <i class="fas fa-heart"></i>
           <span class="nav-icon-badge">0</span>
         </a>
-        <a href="/" class="nav-icon">
+        <a href="/cart" class="nav-icon" title="View Cart">
           <i class="fas fa-shopping-cart"></i>
           <span class="nav-icon-badge"><?= count($cartItems ?? []) ?></span>
         </a>
@@ -273,16 +297,27 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
                   <h5 class="product-price">RM <?= number_format((float)$p['price'], 2) ?></h5>
                   <span class="product-stock <?= $stockClass ?>"><?= $stockText ?> (<?= $p['stock_level'] ?>)</span>
                   
-                  <form method="POST" action="/cart/add" style="margin-top: 15px;">
-                    <input type="hidden" name="product_id" value="<?= $p['product_id'] ?>">
-                    <button type="submit" class="btn-add" <?= $p['stock_level'] == 0 ? 'disabled' : '' ?>>
-                      <?php if ($inCart): ?>
-                        <i class="fas fa-plus"></i> Add Another
-                      <?php else: ?>
-                        <i class="fas fa-shopping-cart text-primary mr-1"></i> Add To Cart
-                      <?php endif; ?>
+                  <div style="margin-top: 15px; display: flex; gap: 8px;">
+                    <form method="POST" action="/cart/add" style="flex: 1;">
+                      <input type="hidden" name="product_id" value="<?= $p['product_id'] ?>">
+                      <button type="submit" class="btn-add" style="width:100%;" <?= $p['stock_level'] == 0 ? 'disabled' : '' ?>>
+                        <?php if ($inCart): ?>
+                          <i class="fas fa-plus"></i> Add Another
+                        <?php else: ?>
+                          <i class="fas fa-shopping-cart text-primary mr-1"></i> Add To Cart
+                        <?php endif; ?>
+                      </button>
+                    </form>
+                    <button
+                      type="button"
+                      class="btn-favourite"
+                      onclick="toggleFavourite(this, <?= $p['product_id'] ?>, <?= htmlspecialchars(json_encode($p['title'])) ?>)"
+                      title="Add to Favourites"
+                      data-product-id="<?= $p['product_id'] ?>"
+                    >
+                      <i class="fas fa-heart"></i>
                     </button>
-                  </form>
+                  </div>
                 </div>
               </div>
             <?php endforeach; ?>
@@ -336,6 +371,63 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
       </div>
     </div>
   </div>
+  <script>
+    // ── Favourites (localStorage) ────────────────────────────
+    const FAVES_KEY = 'vm_favourites';
+
+    function getFavourites() {
+      try { return JSON.parse(localStorage.getItem(FAVES_KEY)) || []; }
+      catch (_) { return []; }
+    }
+
+    function saveFavourites(faves) {
+      localStorage.setItem(FAVES_KEY, JSON.stringify(faves));
+    }
+
+    function toggleFavourite(btn, productId, title) {
+      let faves = getFavourites();
+      const idx = faves.findIndex(f => f.id === productId);
+
+      if (idx === -1) {
+        faves.push({ id: productId, title });
+        btn.classList.add('active');
+        btn.title = 'Remove from Favourites';
+        showFaveToast('❤️ Added to Favourites: ' + title);
+      } else {
+        faves.splice(idx, 1);
+        btn.classList.remove('active');
+        btn.title = 'Add to Favourites';
+        showFaveToast('🤍 Removed from Favourites: ' + title);
+      }
+      saveFavourites(faves);
+    }
+
+    function showFaveToast(msg) {
+      let toast = document.getElementById('fave-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'fave-toast';
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:4px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:280px;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    // Restore active state from localStorage on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      const faves = getFavourites();
+      document.querySelectorAll('.btn-favourite').forEach(btn => {
+        const pid = parseInt(btn.dataset.productId);
+        if (faves.some(f => f.id === pid)) {
+          btn.classList.add('active');
+          btn.title = 'Remove from Favourites';
+        }
+      });
+    });
+  </script>
 </body>
 </html>
 

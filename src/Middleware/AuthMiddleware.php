@@ -25,7 +25,7 @@ final class AuthMiddleware
      *
      * @param string $redirectTo  URL to send to after login (stored in session)
      */
-    public function requireAuth(string $redirectTo = '/dashboard'): void
+    public function requireAuth(string $redirectTo = '/'): void
     {
         $this->session->start();
 
@@ -50,7 +50,7 @@ final class AuthMiddleware
      * Redirect already-authenticated users away from guest-only pages
      * (e.g. landing on /login while already logged in).
      */
-    public function redirectIfAuthenticated(string $destination = '/dashboard'): void
+    public function redirectIfAuthenticated(string $destination = '/'): void
     {
         $this->session->start();
 

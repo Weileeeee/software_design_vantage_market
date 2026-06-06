@@ -25,6 +25,9 @@ spl_autoload_register(function (string $class): void {
     }
 });
 
+// Load grouped auth exceptions that don't follow 1-to-1 PSR-4 mapping
+require_once __DIR__ . '/src/Exceptions/AuthExceptions.php';
+
 // --- Environment (replace with vlucas/phpdotenv in production) ---
 // $_ENV['DB_HOST'] = 'localhost';
 // $_ENV['DB_NAME'] = 'vantagemarket';

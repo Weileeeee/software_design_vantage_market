@@ -135,9 +135,24 @@ match (true) {
             header('Location: /?action=removed');
         })(),
 
-    // ==========================================================
-    // Checkout & Payment Processing (Strategy Pattern)
-    // ==========================================================
+    $path === '/cart' && $method === 'GET'
+        => (function () use ($container): void {
+            /** @var \VantageMarket\Services\SessionManager $session */
+            $session = $container['session'];
+            $session->start();
+            $cartRepo = $container['cartRepository'];
+            
+            $cart = $session->isAuthenticated() 
+                ? $cartRepo->findOrCreateForUser($session->currentUserId())
+                : $cartRepo->findOrCreateForSession(session_id());
+            $cartItems = $cartRepo->getItems($cart->cartId);
+            
+            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
+            $userName = $_SESSION['user_name'] ?? 'Guest User';
+            
+            include __DIR__ . '/../views/cart.php';
+        })(),
+
     $path === '/checkout' && $method === 'GET'
         => (function () use ($container): void {
             /** @var \VantageMarket\Services\SessionManager $session */
@@ -151,7 +166,7 @@ match (true) {
             $cartItems = $cartRepo->getItems($cart->cartId);
             
             if (empty($cartItems)) {
-                header('Location: /?action=cart_empty');
+                header('Location: /cart?action=empty');
                 exit;
             }
             
@@ -274,6 +289,34 @@ match (true) {
             $controller->index();
         })(),
 
+    // ==========================================================
+    // My Likes / Favorites Page
+    // ==========================================================
+    $path === '/likes' && $method === 'GET'
+        => (function () use ($container): void {
+            /** @var \VantageMarket\Services\SessionManager $session */
+            $session = $container['session'];
+            $session->start();
+            
+            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
+            $userName = $_SESSION['user_name'] ?? 'Guest User';
+            
+            // TODO: Fetch favorite items from database
+            // For now, using sample data
+            $favoriteItems = [
+                [
+                    'id' => 1,
+                    'title' => 'Sample Favorite Product',
+                    'seller' => 'VantageMarket',
+                    'price' => 29.99,
+                    'rating' => 4.5,
+                    'reviews' => 125
+                ]
+            ];
+            
+            include __DIR__ . '/../views/likes.php';
+        })(),
+
     // Auth routes (guest-only pages redirect away if already logged in)
     $path === '/register'        && $method === 'GET'
         => (function () use ($middleware): void {
@@ -285,6 +328,13 @@ match (true) {
     $path === '/register'        && $method === 'POST'
         => $auth->register(),
 
+    // Sign In (alias for Login)
+    $path === '/signin'          && $method === 'GET'
+        => (function () use ($middleware): void {
+            $middleware->redirectIfAuthenticated();
+            include __DIR__ . '/../views/login.php';
+        })(),
+
     $path === '/login'           && $method === 'GET'
         => (function () use ($middleware): void {
             $middleware->redirectIfAuthenticated();
@@ -293,6 +343,12 @@ match (true) {
 
     $path === '/login'           && $method === 'POST'
         => $auth->login(),
+
+    $path === '/logout'          && $method === 'GET'
+        => (function () use ($auth): void {
+            // Handle logout as GET request for navigation link
+            $auth->logout();
+        })(),
 
     $path === '/logout'          && $method === 'POST'
         => $auth->logout(),
@@ -318,13 +374,6 @@ match (true) {
     // Protected API — returns current user info
     $path === '/api/me'          && $method === 'GET'
         => $auth->me(),
-
-    // Protected example route
-    $path === '/dashboard'
-        => (function () use ($middleware): void {
-            $middleware->requireAuth('/dashboard');
-            include __DIR__ . '/../views/dashboard.php';
-        })(),
 
     // 404 catch-all
     default => (function (): void {
