@@ -68,12 +68,19 @@ class CartRepository
      */
     public function findOrCreateForSession(string $sessionId): Cart
     {
+        // Pin the cart session ID in $_SESSION so it survives PHP session regeneration.
+        // On the very first call we store it; every subsequent request reuses it.
+        if (!isset($_SESSION['vm_guest_cart_sid'])) {
+            $_SESSION['vm_guest_cart_sid'] = $sessionId;
+        }
+        $pinnedId = $_SESSION['vm_guest_cart_sid'];
+
         $stmt = $this->db->prepare(
             'SELECT * FROM Shopping_Carts
              WHERE session_id = :sid AND user_id IS NULL
              LIMIT 1'
         );
-        $stmt->execute([':sid' => $sessionId]);
+        $stmt->execute([':sid' => $pinnedId]);
         $row = $stmt->fetch();
 
         if ($row) {
@@ -82,9 +89,9 @@ class CartRepository
 
         $this->db->prepare(
             'INSERT INTO Shopping_Carts (session_id) VALUES (:sid)'
-        )->execute([':sid' => $sessionId]);
+        )->execute([':sid' => $pinnedId]);
 
-        return $this->findOrCreateForSession($sessionId);
+        return $this->findOrCreateForSession($pinnedId);
     }
 
     /**
@@ -221,6 +228,9 @@ class CartRepository
         $this->db->prepare(
             'DELETE FROM Cart_Items WHERE cart_id = :cart_id'
         )->execute([':cart_id' => $cartId]);
+
+        // Also reset the pinned guest cart session key so a fresh cart is created next visit
+        unset($_SESSION['vm_guest_cart_sid']);
     }
 
     // ----------------------------------------------------------

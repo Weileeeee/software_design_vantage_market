@@ -157,7 +157,7 @@ match (true) {
             $stockSubject = $container['stockSubject'];
             $stockSubject->detach($productId, $cart->cartId);
             
-            header('Location: /?action=removed');
+            header('Location: /cart?action=removed');
         })(),
 
     $path === '/cart' && $method === 'GET'
@@ -176,6 +176,39 @@ match (true) {
             $userName = $_SESSION['user_name'] ?? 'Guest User';
             
             include __DIR__ . '/../views/cart.php';
+        })(),
+
+    $path === '/checkout/selected' && $method === 'POST'
+        => (function () use ($container): void {
+            // Checkout only the user-selected products from the cart
+            $session = $container['session'];
+            $session->start();
+            $cartRepo = $container['cartRepository'];
+
+            $cart = $session->isAuthenticated()
+                ? $cartRepo->findOrCreateForUser($session->currentUserId())
+                : $cartRepo->findOrCreateForSession(session_id());
+
+            $allItems = $cartRepo->getItems($cart->cartId);
+
+            // Filter to selected product IDs only
+            $selectedIds = array_map('intval', $_POST['selected_products'] ?? []);
+            $cartItems   = array_values(array_filter(
+                $allItems,
+                fn($item) => in_array((int)$item['product_id'], $selectedIds, true)
+            ));
+
+            if (empty($cartItems)) {
+                header('Location: /cart?action=noselect');
+                exit;
+            }
+
+            // Store selected items in session so /checkout/process can use them
+            $_SESSION['vm_checkout_items'] = $cartItems;
+
+            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
+            $userName = $_SESSION['user_name'] ?? 'Guest User';
+            include __DIR__ . '/../views/checkout.php';
         })(),
 
     $path === '/checkout' && $method === 'GET'
@@ -207,14 +240,25 @@ match (true) {
             $session = $container['session'];
             $session->start();
             $cartRepo = $container['cartRepository'];
-            
-            $cart = $session->isAuthenticated() 
+
+            $cart = $session->isAuthenticated()
                 ? $cartRepo->findOrCreateForUser($session->currentUserId())
                 : $cartRepo->findOrCreateForSession(session_id());
-            $cartItems = $cartRepo->getItems($cart->cartId);
-            
+
+            // Use session-stored selected items (set by /checkout/selected),
+            // falling back to all cart items for direct /checkout GET flows
+            if (!empty($_SESSION['vm_checkout_items'])) {
+                $cartItems = $_SESSION['vm_checkout_items'];
+            } else {
+                $cartItems = $cartRepo->getItems($cart->cartId);
+            }
+
             if (empty($cartItems)) {
-                header('Location: /');
+                $userType = $session->isAuthenticated() ? 'User' : 'Guest';
+                $userName = $_SESSION['user_name'] ?? 'Guest User';
+                $success  = false;
+                $checkoutLog = "<p style='color:#c62828;'>Your cart is empty. Please select items before placing an order.</p>";
+                include __DIR__ . '/../views/checkout.php';
                 exit;
             }
             
@@ -245,13 +289,17 @@ match (true) {
             $checkoutLog = ob_get_clean();
             
             if ($success) {
-                // Clear the cart
-                $cartRepo->clearCart($cart->cartId);
-                // Also detach observer
+                // Remove only the ordered items from the cart
+                foreach ($cartItems as $item) {
+                    $cartRepo->removeItem($cart->cartId, (int)$item['product_id']);
+                }
+                // Detach observers for ordered items
                 $stockSubject = $container['stockSubject'];
                 foreach ($cartItems as $item) {
                     $stockSubject->detach((int)$item['product_id'], $cart->cartId);
                 }
+                // Clear the session-stored checkout items
+                unset($_SESSION['vm_checkout_items']);
             }
             
             $userType = $session->isAuthenticated() ? 'User' : 'Guest';

@@ -6,7 +6,8 @@ declare(strict_types=1);
 /** @var string $userName */
 /** @var string $checkoutLog */
 /** @var bool   $success */
-$cartItems = $cartItems ?? [];
+// Use session-selected items if set (from /checkout/selected), else use passed $cartItems
+$cartItems = $_SESSION['vm_checkout_items'] ?? $cartItems ?? [];
 $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0.0);
 ?>
 <!DOCTYPE html>

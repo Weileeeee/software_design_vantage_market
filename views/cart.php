@@ -152,8 +152,21 @@ foreach ($cartItems as $item) {
         <div class="cart-container">
           <!-- Left: Cart Items -->
           <div class="cart-products">
+            <!-- Flash message -->
+            <?php if (($_GET['action'] ?? '') === 'removed'): ?>
+            <div style="background:#e8f5e9;padding:12px 16px;border-left:4px solid #43a047;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+              <i class="fas fa-check-circle" style="color:#43a047;"></i>
+              <span style="color:#2e7d32;font-size:13px;">Item removed from cart.</span>
+            </div>
+            <?php elseif (($_GET['action'] ?? '') === 'noselect'): ?>
+            <div style="background:#fff3e0;padding:12px 16px;border-left:4px solid #fb8c00;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+              <i class="fas fa-exclamation-circle" style="color:#fb8c00;"></i>
+              <span style="color:#e65100;font-size:13px;">Please select at least one item to checkout.</span>
+            </div>
+            <?php endif; ?>
+
             <!-- Promo Banner -->
-            <div style="background: #ffe8e8; padding: 15px; border-bottom: 1px solid #ffd4d4; border-radius: 4px 4px 0 0; display: flex; align-items: center; gap: 10px;">
+            <div style="background: #ffe8e8; padding: 15px; border-bottom: 1px solid #ffd4d4; display: flex; align-items: center; gap: 10px;">
               <i class="fas fa-tag" style="color: #ff6b6b;"></i>
               <span style="color: #333; font-size: 13px;"><strong>Shop Up to 50% Off 6 Deals Now!</strong></span>
             </div>
@@ -203,7 +216,7 @@ foreach ($cartItems as $item) {
                                     <i class="fas fa-trash"></i> Delete
                                 </button>
                                 <br>
-                                <button type="button" class="action-btn" title="Add to Favorites" onclick="addToFavourites(<?= \$item['product_id'] ?>, <?= htmlspecialchars(json_encode(\$item['title'])) ?>, this)" style="margin-top: 5px;">
+                                <button type="button" class="action-btn" title="Add to Favorites" onclick="addToFavourites(<?= $item['product_id'] ?>, <?= htmlspecialchars(json_encode($item['title'])) ?>, this)" style="margin-top: 5px;">
                                     <i class="fas fa-heart"></i> Like
                                 </button>
                             </div>
@@ -227,20 +240,20 @@ foreach ($cartItems as $item) {
           <!-- Right: Summary -->
           <div class="cart-summary">
             <h3 style="margin-top: 0; font-size: 16px;">Order Summary</h3>
-            
+
             <div class="voucher-section">
                 <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">Voucher / Discount</label>
                 <input type="text" class="voucher-input" placeholder="Add shop voucher code" readonly>
             </div>
 
             <div class="summary-row">
-                <span class="summary-label">Subtotal</span>
-                <span class="summary-value">RM <?= number_format($cartTotal, 2) ?></span>
+                <span class="summary-label">Subtotal (<span id="summary-count">0</span> item<span id="summary-plural"></span>)</span>
+                <span class="summary-value" id="summary-subtotal">RM 0.00</span>
             </div>
 
             <div class="summary-row">
                 <span class="summary-label">Shipping</span>
-                <span class="summary-value">RM 5.00</span>
+                <span class="summary-value" id="summary-shipping">RM 0.00</span>
             </div>
 
             <div class="summary-row">
@@ -249,11 +262,19 @@ foreach ($cartItems as $item) {
             </div>
 
             <div class="summary-row total-row">
-                <span class="summary-label">Total (<?= count($cartItems) ?> item<?= count($cartItems) > 1 ? 's' : '' ?>)</span>
-                <span class="summary-value">RM <?= number_format($cartTotal + 5, 2) ?></span>
+                <span class="summary-label">Total</span>
+                <span class="summary-value" id="summary-total">RM 0.00</span>
             </div>
 
-            <a href="/checkout" class="checkout-btn" style="text-decoration: none; display: block; text-align: center;">Check Out</a>
+            <p id="summary-hint" style="font-size:12px;color:#999;text-align:center;margin:0 0 10px;">Select items above to checkout</p>
+
+            <!-- Hidden form: posts selected product_ids to /checkout/process -->
+            <form id="checkout-form" method="POST" action="/checkout/selected">
+              <div id="checkout-hidden-inputs"></div>
+              <button type="submit" id="checkout-btn" class="checkout-btn" disabled style="opacity:0.5;cursor:not-allowed;">
+                Check Out
+              </button>
+            </form>
           </div>
         </div>
     <?php endif; ?>
@@ -377,6 +398,86 @@ foreach ($cartItems as $item) {
             });
         });
     });
+
+    // ── Selected-items summary recalculator ─────────────────
+    function recalcSummary() {
+      const checked = document.querySelectorAll('.item-check:checked');
+      let subtotal = 0;
+      let count    = 0;
+
+      // Build hidden inputs for the checkout form
+      const hiddenContainer = document.getElementById('checkout-hidden-inputs');
+      hiddenContainer.innerHTML = '';
+
+      checked.forEach(cb => {
+        const price = parseFloat(cb.dataset.price) || 0;
+        const qty   = parseInt(cb.dataset.qty)    || 1;
+        subtotal += price * qty;
+        count    += 1;
+
+        // Add hidden input so the checkout form knows which products are selected
+        const inp  = document.createElement('input');
+        inp.type   = 'hidden';
+        inp.name   = 'selected_products[]';
+        inp.value  = cb.dataset.productId;
+        hiddenContainer.appendChild(inp);
+      });
+
+      const shipping = count > 0 ? 5.00 : 0;
+      const total    = subtotal + shipping;
+
+      document.getElementById('summary-count').textContent    = count;
+      document.getElementById('summary-plural').textContent   = count === 1 ? '' : 's';
+      document.getElementById('summary-subtotal').textContent = 'RM ' + subtotal.toFixed(2);
+      document.getElementById('summary-shipping').textContent = 'RM ' + shipping.toFixed(2);
+      document.getElementById('summary-total').textContent    = 'RM ' + total.toFixed(2);
+
+      const btn  = document.getElementById('checkout-btn');
+      const hint = document.getElementById('summary-hint');
+      if (count > 0) {
+        btn.disabled           = false;
+        btn.style.opacity      = '1';
+        btn.style.cursor       = 'pointer';
+        hint.style.display     = 'none';
+      } else {
+        btn.disabled           = true;
+        btn.style.opacity      = '0.5';
+        btn.style.cursor       = 'not-allowed';
+        hint.style.display     = 'block';
+      }
+    }
+
+    // Attach recalc to every item checkbox
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.item-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+          // Keep data-qty in sync with the quantity input
+          const row = cb.closest('.product-item');
+          if (row) {
+            const qtyInput = row.querySelector('.qty-input');
+            if (qtyInput) cb.dataset.qty = qtyInput.value;
+          }
+          recalcSummary();
+        });
+      });
+      recalcSummary(); // Initial state
+    });
+
+    // Re-sync qty when quantity buttons are clicked
+    const origUpdateQty = window.updateQty;
+    window.updateQty = function(index, change) {
+      if (origUpdateQty) origUpdateQty(index, change);
+      // Update data-qty on corresponding checkbox after qty change
+      const input = document.querySelector(`.qty-input[data-item="${index}"]`);
+      const cb    = document.querySelector(`.item-check[data-item-id="${index}"]`);
+      if (input && cb) {
+        let val = parseInt(input.value) + change;
+        if (val < 1) val = 1;
+        input.value  = val;
+        cb.dataset.qty = val;
+        recalcSummary();
+      }
+    };
   </script>
 </body>
 </html>
