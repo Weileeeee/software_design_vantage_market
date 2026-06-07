@@ -1,8 +1,13 @@
 <?php
 declare(strict_types=1);
 
-global $cartItems, $userType, $userName, $checkoutLog, $success;
-$cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0.0);
+/** @var array  $cartItems */
+/** @var string $userType */
+/** @var string $userName */
+/** @var string $checkoutLog */
+/** @var bool   $success */
+$cartItems = $cartItems ?? [];
+$cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0.0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,24 +39,77 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="mid-header" style="border-bottom: 1px solid #e0e0e0; background: #ff6b6b; color: white;">
+  <!-- Topbar -->
+  <div class="topbar">
     <div class="container d-flex align-center justify-between">
-      <a href="/" class="logo" style="color: white;">VANTAGE<span class="logo-highlight">MARKET</span></a>
-      <div><a href="/cart" style="color: white; text-decoration: none;"><i class="fa fa-angle-left"></i> Back to Cart</a></div>
+      <div class="topbar-links">
+        <a href="#">About</a><a href="#">Contact</a><a href="#">Help</a>
+      </div>
+      <div class="topbar-actions d-flex align-center">
+        <?php if (($userType ?? 'Guest') === 'Guest'): ?>
+          <span class="text-muted">Browsing as: Guest</span>
+        <?php else: ?>
+          <span class="text-muted">Account: <?= htmlspecialchars($userName ?? '') ?></span>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+  <!-- Mid Header -->
+  <div class="mid-header">
+    <div class="container d-flex align-center justify-between">
+      <a href="/" class="logo">VANTAGE<span class="logo-highlight">MARKET</span></a>
+      <div class="customer-service">
+        <span class="cs-title">Customer Service</span>
+        <span class="cs-phone">+012 345 6789</span>
+      </div>
+    </div>
+  </div>
+  <!-- Navbar -->
+  <div class="navbar">
+    <div class="container d-flex align-center justify-between">
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/catalog">Shop</a>
+        <a href="/cart"><i class="fas fa-angle-left"></i> Back to Cart</a>
+        <?php if (($userType ?? 'Guest') === 'Guest'): ?>
+          <a href="/signin">Sign In</a>
+        <?php else: ?>
+          <a href="/logout">Sign Out</a>
+        <?php endif; ?>
+      </div>
+      <div class="nav-icons">
+        <a href="/cart" class="nav-icon" title="Cart" style="color: var(--primary);">
+          <i class="fas fa-shopping-cart"></i>
+          <span class="nav-icon-badge"><?= count($cartItems) ?></span>
+        </a>
+      </div>
     </div>
   </div>
 
   <div class="container">
     <?php if (isset($checkoutLog)): ?>
-        <div class="checkout-panel" style="margin-top: 40px; text-align: center;">
-            <h3 class="section-title"><?= $success ? 'Order Placed Successfully!' : 'Order Error' ?></h3>
-            <?= $checkoutLog ?>
-            <?php if ($success): ?>
-                <a href="/" class="btn-checkout" style="display:inline-block; width:auto; padding: 10px 30px; margin-top: 20px;">Continue Shopping</a>
-            <?php else: ?>
-                <a href="/checkout" class="btn-checkout" style="display:inline-block; width:auto; padding: 10px 30px; margin-top: 20px;">Try Again</a>
-            <?php endif; ?>
+        <div class="checkout-panel" style="margin-top: 40px; text-align: center; max-width: 560px; margin-left: auto; margin-right: auto;">
+          <?php if ($success): ?>
+            <div style="font-size: 60px; margin-bottom: 16px;">✅</div>
+            <h2 style="color: #2e7d32; margin-bottom: 8px;">Order Placed Successfully!</h2>
+            <p style="color: #666; margin-bottom: 24px;">Thank you for shopping with VantageMarket. Your order is being processed.</p>
+            <div style="background:#f5f5f5; padding:16px; border-radius:4px; text-align:left; margin-bottom:24px; font-size:13px;">
+              <strong>Payment Summary</strong><br><br>
+              <?= $checkoutLog ?>
+            </div>
+            <div style="display:flex; gap:12px; justify-content:center;">
+              <a href="/" class="btn-checkout" style="display:inline-block;width:auto;padding:12px 28px;text-decoration:none;">Continue Shopping</a>
+              <a href="/catalog" class="btn-checkout" style="display:inline-block;width:auto;padding:12px 28px;text-decoration:none;background:#555;">Browse More</a>
+            </div>
+          <?php else: ?>
+            <div style="font-size: 60px; margin-bottom: 16px;">❌</div>
+            <h2 style="color: #c62828; margin-bottom: 8px;">Payment Failed</h2>
+            <p style="color: #666; margin-bottom: 24px;">Something went wrong processing your payment. Please try again.</p>
+            <div style="background:#fff5f5; border:1px solid #ffcdd2; padding:16px; border-radius:4px; text-align:left; margin-bottom:24px; font-size:13px; color:#c62828;">
+              <?= $checkoutLog ?>
+            </div>
+            <a href="/checkout" class="btn-checkout" style="display:inline-block;width:auto;padding:12px 28px;text-decoration:none;">Try Again</a>
+          <?php endif; ?>
         </div>
     <?php else: ?>
         <form method="POST" action="/checkout/process" class="checkout-layout">
@@ -62,31 +120,31 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
                 <h3 class="section-title">Billing Details</h3>
                 <div class="form-group">
                     <label>Full Name</label>
-                    <input type="text" class="form-control" value="<?= htmlspecialchars($userName) ?>" required>
+                    <input type="text" name="billing_name" class="form-control" value="<?= htmlspecialchars($userName) ?>" required>
                 </div>
                 <div class="form-group">
                     <label>Email Address</label>
-                    <input type="email" class="form-control" placeholder="your@email.com" required>
+                    <input type="email" name="billing_email" class="form-control" placeholder="your@email.com" required>
                 </div>
                 <div class="form-group">
                     <label>Phone Number</label>
-                    <input type="tel" class="form-control" placeholder="+60 1234 5678" required>
+                    <input type="tel" name="billing_phone" class="form-control" placeholder="+60 1234 5678" required>
                 </div>
                 <div class="form-group">
                     <label>Shipping Address</label>
-                    <textarea class="form-control" rows="3" placeholder="Enter your complete address" required></textarea>
+                    <textarea name="billing_address" class="form-control" rows="3" placeholder="Enter your complete address" required></textarea>
                 </div>
                 <div class="form-group">
                     <label>City</label>
-                    <input type="text" class="form-control" placeholder="e.g. Kuala Lumpur" required>
+                    <input type="text" name="billing_city" class="form-control" placeholder="e.g. Kuala Lumpur" required>
                 </div>
                 <div class="form-group">
                     <label>State</label>
-                    <input type="text" class="form-control" placeholder="e.g. Selangor" required>
+                    <input type="text" name="billing_state" class="form-control" placeholder="e.g. Selangor" required>
                 </div>
                 <div class="form-group">
                     <label>Postal Code</label>
-                    <input type="text" class="form-control" placeholder="e.g. 50000" required>
+                    <input type="text" name="billing_postcode" class="form-control" placeholder="e.g. 50000" required>
                 </div>
             </div>
 

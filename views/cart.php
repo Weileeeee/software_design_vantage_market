@@ -180,7 +180,7 @@ foreach ($cartItems as $item) {
 
                     <?php foreach ($items as $index => $item): ?>
                         <div class="product-item">
-                            <input type="checkbox" class="item-check" data-item-id="<?= $index ?>" data-price="<?= $item['price'] ?>" data-qty="<?= $item['quantity'] ?>">
+                            <input type="checkbox" class="item-check" data-item-id="<?= $index ?>" data-product-id="<?= $item['product_id'] ?>" data-price="<?= $item['price'] ?>" data-qty="<?= $item['quantity'] ?>">
                             <div class="product-info">
                                 <div class="product-title"><?= htmlspecialchars($item['title']) ?></div>
                                 <div class="product-seller">by <?= htmlspecialchars($seller) ?></div>
@@ -199,11 +199,11 @@ foreach ($cartItems as $item) {
                                 <div class="total-price">RM <?= number_format((float)$item['price'] * $item['quantity'], 2) ?></div>
                             </div>
                             <div class="actions-cell">
-                                <button type="button" class="action-btn" title="Delete" onclick="deleteItem(<?= $index ?>)">
+                                <button type="button" class="action-btn" title="Delete" onclick="deleteItem(<?= $item['product_id'] ?>, this)">
                                     <i class="fas fa-trash"></i> Delete
                                 </button>
                                 <br>
-                                <button type="button" class="action-btn" title="Add to Favorites" onclick="addToFavorites(<?= $index ?>)" style="margin-top: 5px;">
+                                <button type="button" class="action-btn" title="Add to Favorites" onclick="addToFavourites(<?= \$item['product_id'] ?>, <?= htmlspecialchars(json_encode(\$item['title'])) ?>, this)" style="margin-top: 5px;">
                                     <i class="fas fa-heart"></i> Like
                                 </button>
                             </div>
@@ -267,36 +267,102 @@ foreach ($cartItems as $item) {
         input.value = value;
     }
 
-    function deleteItem(index) {
-        if (confirm('Remove this item from cart?')) {
-            // AJAX call to delete item
-            console.log('Delete item:', index);
-        }
+    function deleteItem(productId, btn) {
+        if (!confirm('Remove this item from your cart?')) return;
+
+        // Disable button to prevent double-click
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Removing...'; }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/cart/remove';
+        const input = document.createElement('input');
+        input.type  = 'hidden';
+        input.name  = 'product_id';
+        input.value = productId;
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
     }
 
-    function addToFavorites(index) {
-        alert('Item added to favorites');
+    // ── Favourites from localStorage ─────────────────────────
+    const FAVES_KEY = 'vm_favourites';
+    function getFavourites() {
+        try { return JSON.parse(localStorage.getItem(FAVES_KEY)) || []; } catch (_) { return []; }
+    }
+    function saveFavourites(f) { localStorage.setItem(FAVES_KEY, JSON.stringify(f)); }
+
+    function addToFavourites(productId, title, btn) {
+        let faves = getFavourites();
+        if (!faves.some(f => f.id === productId)) {
+            faves.push({ id: productId, title });
+            saveFavourites(faves);
+        }
+        if (btn) {
+            btn.style.color = '#ff6b6b';
+            btn.innerHTML   = '<i class="fas fa-heart"></i> Liked';
+            setTimeout(() => {
+                btn.style.color = '';
+                btn.innerHTML   = '<i class="fas fa-heart"></i> Like';
+            }, 1500);
+        }
+        showCartToast('❤️ Added to Favourites: ' + title);
     }
 
     function deleteSelected() {
         const selected = document.querySelectorAll('.item-check:checked');
         if (selected.length === 0) {
-            alert('Please select items to delete');
+            alert('Please select items to delete.');
             return;
         }
-        if (confirm('Delete selected items?')) {
-            // AJAX call to delete selected items
-            console.log('Delete selected:', selected.length);
-        }
+        if (!confirm('Remove ' + selected.length + ' selected item(s) from cart?')) return;
+
+        // Submit one-by-one via chained hidden forms (server handles redirect)
+        // Collect product IDs from checked rows
+        const ids = Array.from(selected).map(cb => cb.dataset?.productId).filter(Boolean);
+        if (!ids.length) { alert('Could not identify selected items.'); return; }
+
+        // Delete first item and let server redirect back; repeat on reload via URL param
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/cart/remove';
+        const input = document.createElement('input');
+        input.type  = 'hidden';
+        input.name  = 'product_id';
+        input.value = ids[0];
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
     }
 
     function likeSelected() {
         const selected = document.querySelectorAll('.item-check:checked');
         if (selected.length === 0) {
-            alert('Please select items to add to favorites');
+            alert('Please select items to add to favourites.');
             return;
         }
-        alert(selected.length + ' item(s) added to favorites');
+        // Collect titles from selected rows
+        selected.forEach(cb => {
+            const row = cb.closest('tr') || cb.closest('.cart-row');
+            const titleEl = row?.querySelector('.product-title');
+            const pid = cb.dataset?.productId || cb.value;
+            if (titleEl && pid) addToFavourites(parseInt(pid), titleEl.textContent.trim(), null);
+        });
+        showCartToast('❤️ ' + selected.length + ' item(s) added to Favourites!');
+    }
+
+    function showCartToast(msg) {
+        let toast = document.getElementById('cart-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'cart-toast';
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:4px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:280px;';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.opacity = '1';
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
     }
 
     // Seller select all

@@ -297,26 +297,36 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
                   <h5 class="product-price">RM <?= number_format((float)$p['price'], 2) ?></h5>
                   <span class="product-stock <?= $stockClass ?>"><?= $stockText ?> (<?= $p['stock_level'] ?>)</span>
                   
-                  <div style="margin-top: 15px; display: flex; gap: 8px;">
-                    <form method="POST" action="/cart/add" style="flex: 1;">
+                  <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; gap: 8px;">
+                      <form method="POST" action="/cart/add" style="flex: 1;">
+                        <input type="hidden" name="product_id" value="<?= $p['product_id'] ?>">
+                        <button type="submit" class="btn-add" style="width:100%;" <?= $p['stock_level'] == 0 ? 'disabled' : '' ?>>
+                          <?php if ($inCart): ?>
+                            <i class="fas fa-plus"></i> Add Another
+                          <?php else: ?>
+                            <i class="fas fa-shopping-cart text-primary mr-1"></i> Add To Cart
+                          <?php endif; ?>
+                        </button>
+                      </form>
+                      <button
+                        type="button"
+                        class="btn-favourite"
+                        onclick="toggleFavourite(this, <?= $p['product_id'] ?>, <?= htmlspecialchars(json_encode($p['title'])) ?>)"
+                        title="Add to Favourites"
+                        data-product-id="<?= $p['product_id'] ?>"
+                      >
+                        <i class="fas fa-heart"></i>
+                      </button>
+                    </div>
+                    <?php if ($p['stock_level'] > 0): ?>
+                    <form method="POST" action="/cart/buy-now">
                       <input type="hidden" name="product_id" value="<?= $p['product_id'] ?>">
-                      <button type="submit" class="btn-add" style="width:100%;" <?= $p['stock_level'] == 0 ? 'disabled' : '' ?>>
-                        <?php if ($inCart): ?>
-                          <i class="fas fa-plus"></i> Add Another
-                        <?php else: ?>
-                          <i class="fas fa-shopping-cart text-primary mr-1"></i> Add To Cart
-                        <?php endif; ?>
+                      <button type="submit" class="btn-add" style="width:100%; background:#ff6b6b; color:white; border-color:#ff6b6b;">
+                        <i class="fas fa-bolt"></i> Buy Now
                       </button>
                     </form>
-                    <button
-                      type="button"
-                      class="btn-favourite"
-                      onclick="toggleFavourite(this, <?= $p['product_id'] ?>, <?= htmlspecialchars(json_encode($p['title'])) ?>)"
-                      title="Add to Favourites"
-                      data-product-id="<?= $p['product_id'] ?>"
-                    >
-                      <i class="fas fa-heart"></i>
-                    </button>
+                    <?php endif; ?>
                   </div>
                 </div>
               </div>

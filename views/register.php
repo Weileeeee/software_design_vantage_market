@@ -172,9 +172,12 @@
 
   // ── Helpers ─────────────────────────────────────────────────
   function setFieldError(id, message) {
-    const errId = id === 'terms' ? 'terms-error' : id + '-error';
-    const el    = document.getElementById(errId);
-    const input = document.getElementById(id);
+    // Normalize: 'terms' and 'terms_accepted' both map to the same error span
+    const normalId = (id === 'terms_accepted') ? 'terms' : id;
+    const errId    = normalId + '-error';
+    const el       = document.getElementById(errId);
+    const input    = document.getElementById(id);
+    if (!el) return; // guard — skip unknown fields
     if (message) {
       el.textContent = message;
       el.classList.add('visible');
@@ -192,7 +195,7 @@
   }
 
   function clearErrors() {
-    ['first_name','last_name','email','password','confirm_password','terms'].forEach(id => setFieldError(id, ''));
+    ['first_name','last_name','email','password','confirm_password','terms_accepted'].forEach(id => setFieldError(id, ''));
     banner.className = 'alert';
   }
 
@@ -252,9 +255,9 @@
           showAlert('error', data.message ?? 'Registration failed. Please try again.');
         }
       }
-    } catch {
+    } catch (err) {
       setLoading(false);
-      showAlert('error', 'Network error. Please check your connection.');
+      showAlert('error', 'Unable to connect to the server. Please check your connection and try again.');
     }
   });
 

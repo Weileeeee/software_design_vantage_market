@@ -176,16 +176,26 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
               <h6 class="product-title"><?= htmlspecialchars($p->title) ?></h6>
               <h5 class="product-price">RM <?= number_format((float)$p->price, 2) ?></h5>
               <span class="product-stock <?= $stockClass ?>"><?= $stockText ?></span>
-              <form method="POST" action="/cart/add" style="margin-top:12px;">
-                <input type="hidden" name="product_id" value="<?= $p->productId ?>">
-                <button type="submit" class="btn-add" <?= $p->stockLevel == 0 ? 'disabled' : '' ?>>
-                  <?php if ($inCart): ?>
-                    <i class="fas fa-plus"></i> Add Another
-                  <?php else: ?>
-                    <i class="fas fa-shopping-cart"></i> Add To Cart
-                  <?php endif; ?>
-                </button>
-              </form>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+                <form method="POST" action="/cart/add">
+                  <input type="hidden" name="product_id" value="<?= $p->productId ?>">
+                  <button type="submit" class="btn-add" style="width:100%;" <?= $p->stockLevel == 0 ? 'disabled' : '' ?>>
+                    <?php if ($inCart): ?>
+                      <i class="fas fa-plus"></i> Add Another
+                    <?php else: ?>
+                      <i class="fas fa-shopping-cart"></i> Add To Cart
+                    <?php endif; ?>
+                  </button>
+                </form>
+                <?php if ($p->stockLevel > 0): ?>
+                <form method="POST" action="/cart/buy-now">
+                  <input type="hidden" name="product_id" value="<?= $p->productId ?>">
+                  <button type="submit" class="btn-add" style="width:100%;background:#ff6b6b;color:white;border-color:#ff6b6b;">
+                    <i class="fas fa-bolt"></i> Buy Now
+                  </button>
+                </form>
+                <?php endif; ?>
+              </div>
             </div>
           </div>
         <?php endforeach; ?>

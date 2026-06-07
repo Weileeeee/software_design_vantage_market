@@ -108,6 +108,31 @@ match (true) {
             header('Location: /?action=added');
         })(),
 
+    $path === '/cart/buy-now' && $method === 'POST'
+        => (function () use ($container): void {
+            $productId = (int) ($_POST['product_id'] ?? 0);
+            if (!$productId) { header('Location: /'); exit; }
+
+            /** @var \VantageMarket\Services\SessionManager $session */
+            $session = $container['session'];
+            $session->start();
+
+            $cartRepo = $container['cartRepository'];
+            $cart = $session->isAuthenticated()
+                ? $cartRepo->findOrCreateForUser($session->currentUserId())
+                : $cartRepo->findOrCreateForSession(session_id());
+
+            // Add item then go straight to checkout
+            $cartRepo->addItem($cart->cartId, $productId, 1);
+
+            /** @var \VantageMarket\Services\ProductStockSubject $stockSubject */
+            $stockSubject = $container['stockSubject'];
+            $stockSubject->attach($productId, $cart->cartId);
+
+            header('Location: /checkout');
+            exit;
+        })(),
+
     $path === '/cart/remove' && $method === 'POST'
         => (function () use ($container): void {
             $productId = (int) ($_POST['product_id'] ?? 0);
