@@ -98,11 +98,11 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
         </div>
       </div>
       <div class="nav-icons">
-        <a href="#" class="nav-icon">
+        <a href="/#cart" class="nav-icon">
           <i class="fas fa-heart"></i>
           <span class="nav-icon-badge">0</span>
         </a>
-        <a href="#" class="nav-icon">
+        <a href="#" class="nav-icon" class="nav-icon">
           <i class="fas fa-shopping-cart"></i>
           <span class="nav-icon-badge"><?= count($cartItems) ?></span>
         </a>
@@ -173,7 +173,7 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
       <!-- Right: Sidebar -->
       <div>
         <!-- Cart Panel -->
-        <div class="panel">
+        <div class="panel" id="cart">
           <h3 class="panel-title">My Cart</h3>
           <?php if (empty($cartItems)): ?>
             <p class="text-muted" style="text-align: center; margin: 30px 0;">Cart is empty.</p>
@@ -198,6 +198,13 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
               <span>Total</span>
               <span class="text-dark">RM <?= number_format($cartTotal, 2) ?></span>
             </div>
+            <?php if (!empty($cartItems)): ?>
+              <form method="POST" action="/orders/place" style="margin-top: 15px;">
+                <button type="submit" style="width:100%; background:var(--primary); border:none; padding:12px; font-weight:700; font-size:15px; cursor:pointer; border-radius:2px;">
+                  <i class="fas fa-credit-card" style="margin-right:8px;"></i>Checkout
+                </button>
+              </form>
+            <?php endif; ?>
           <?php endif; ?>
         </div>
 

@@ -123,11 +123,12 @@ class CartRepository
         $this->db->prepare(
             'INSERT INTO Cart_Items (cart_id, product_id, quantity)
              VALUES (:cart_id, :product_id, :qty)
-             ON DUPLICATE KEY UPDATE quantity = quantity + :qty'
+             ON DUPLICATE KEY UPDATE quantity = quantity + :qty2'
         )->execute([
             ':cart_id'    => $cartId,
             ':product_id' => $productId,
             ':qty'        => $qty,
+            ':qty2'       => $qty,
         ]);
     }
 

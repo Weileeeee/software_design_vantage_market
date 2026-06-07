@@ -69,7 +69,11 @@ final class UserRegistrationService
         }
 
         // 5. Send welcome email (UC05 step 7)
-        $this->mailer->sendWelcomeEmail($user);
+        try {
+            $this->mailer->sendWelcomeEmail($user);
+        } catch (\Throwable $e) {
+            error_log('[UserRegistrationService] Welcome email failed: ' . $e->getMessage());
+        }
 
         return $user;
     }

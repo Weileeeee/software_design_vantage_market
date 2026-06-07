@@ -239,6 +239,58 @@ match (true) {
             $middleware->requireAuth('/dashboard');
             include __DIR__ . '/../views/dashboard.php';
         })(),
+        
+    // ----------------------------------------------------------
+    // Place order (converts cart → order)
+    // ----------------------------------------------------------
+    $path === '/orders/place' && $method === 'POST'
+        => (function () use ($container): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->place();
+        })(),
+
+    // ----------------------------------------------------------
+    // Order list (current user / guest session)
+    // ----------------------------------------------------------
+    $path === '/orders' && $method === 'GET'
+        => (function () use ($container): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->index();
+        })(),
+
+    // ----------------------------------------------------------
+    // Single order tracker view  GET /orders/123
+    // ----------------------------------------------------------
+    preg_match('#^/orders/(\d+)$#', $path, $m) && $method === 'GET'
+        => (function () use ($container, $m): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->show((int) $m[1]);
+        })(),
+
+    // ----------------------------------------------------------
+    // Advance order status  POST /orders/123/advance  (admin/demo)
+    // ----------------------------------------------------------
+    preg_match('#^/orders/(\d+)/advance$#', $path, $m) && $method === 'POST'
+        => (function () use ($container, $m): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->advance((int) $m[1]);
+        })(),
 
     // 404 catch-all
     default => (function (): void {

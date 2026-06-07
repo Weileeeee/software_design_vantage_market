@@ -15,23 +15,6 @@ class InvalidCredentialsException extends RuntimeException {}
 /** Thrown when account is temporarily locked (too many failed attempts) */
 class AccountLockedException extends RuntimeException {}
 
-/** Thrown when registration input fails validation */
-class ValidationException extends RuntimeException
-{
-    private array $errors;
-
-    public function __construct(array $errors)
-    {
-        parent::__construct('Validation failed.');
-        $this->errors = $errors;
-    }
-
-    public function getErrors(): array
-    {
-        return $this->errors;
-    }
-}
-
 /** Thrown when the email is already registered */
 class DuplicateEmailException extends RuntimeException {}
 
