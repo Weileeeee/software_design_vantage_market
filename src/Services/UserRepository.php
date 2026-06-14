@@ -91,15 +91,16 @@ final class UserRepository
         $this->db->prepare(
             'UPDATE Users
              SET failed_attempts = failed_attempts + 1,
-                 is_locked       = IF(failed_attempts + 1 >= :max, TRUE, FALSE),
-                 locked_until    = IF(failed_attempts + 1 >= :max,
-                                      DATE_ADD(NOW(), INTERVAL :mins MINUTE),
+                 is_locked       = IF(failed_attempts + 1 >= ?, TRUE, FALSE),
+                 locked_until    = IF(failed_attempts + 1 >= ?,
+                                      DATE_ADD(NOW(), INTERVAL ? MINUTE),
                                       locked_until)
-             WHERE user_id = :id'
+             WHERE user_id = ?'
         )->execute([
-            ':max'  => $maxAttempts,
-            ':mins' => $lockMinutes,
-            ':id'   => $userId,
+            $maxAttempts,
+            $maxAttempts,
+            $lockMinutes,
+            $userId,
         ]);
     }
 

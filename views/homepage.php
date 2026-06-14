@@ -86,23 +86,24 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
           </div>
         </div>
         <div class="nav-links">
-          <a href="#" style="color:var(--primary)">Home</a>
-          <a href="#">Shop</a>
+          <a href="/" style="color:var(--primary)">Home</a>
+          <a href="/">Shop</a>
           <a href="#">Shop Detail</a>
           <?php if ($userType === 'Guest'): ?>
-            <a href="/login">Sign In</a>
+            <a href="/signin">Sign In</a>
             <a href="/register">Register</a>
           <?php else: ?>
-            <a href="/dashboard">Dashboard</a>
+            <a href="/orders">My Orders</a>
+            <a href="/logout">Sign Out</a>
           <?php endif; ?>
         </div>
       </div>
       <div class="nav-icons">
-        <a href="#" class="nav-icon">
+        <a href="/likes" class="nav-icon" title="My Likes">
           <i class="fas fa-heart"></i>
           <span class="nav-icon-badge">0</span>
         </a>
-        <a href="#" class="nav-icon">
+        <a href="/cart" class="nav-icon" title="View Cart">
           <i class="fas fa-shopping-cart"></i>
           <span class="nav-icon-badge"><?= count($cartItems) ?></span>
         </a>
@@ -142,6 +143,66 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
       <div class="feature-box">
         <i class="fa fa-phone-volume feature-icon"></i>
         <h5 class="feature-title">24/7 Support</h5>
+      </div>
+    </div>
+
+
+    <!-- Featured Products -->
+    <div style="margin: 40px 0;">
+      <h2 class="section-title" id="products">Featured Products</h2>
+      <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+        <?php foreach (array_slice($products, 0, 8) as $p): ?>
+          <?php
+            $inCart = false;
+            foreach ($cartItems as $ci) {
+                if ($ci['product_id'] == $p->productId) { $inCart = true; break; }
+            }
+            $stockClass = 'stock-in'; $stockText = 'In Stock';
+            if ($p->stockLevel == 0) { $stockClass = 'stock-out'; $stockText = 'Out of Stock'; }
+            elseif ($p->stockLevel <= 10) { $stockClass = 'stock-low'; $stockText = 'Low Stock'; }
+          ?>
+          <div class="product-card" style="position: relative;">
+            <button
+              type="button"
+              class="btn-favourite-hp"
+              onclick="toggleFavourite(this, <?= $p->productId ?>, <?= htmlspecialchars(json_encode($p->title)) ?>)"
+              data-product-id="<?= $p->productId ?>"
+              title="Add to Favourites"
+              style="position:absolute;top:10px;right:10px;border:1px solid #eee;background:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#ccc;font-size:15px;transition:0.2s;"
+            ><i class="fas fa-heart"></i></button>
+            <div class="product-img" style="background:#f8f9fa; display:flex; align-items:center; justify-content:center; height:160px;">
+              <i class="fas fa-box-open" style="font-size:40px; color:#ccc;"></i>
+            </div>
+            <div class="product-body">
+              <h6 class="product-title"><?= htmlspecialchars($p->title) ?></h6>
+              <h5 class="product-price">RM <?= number_format((float)$p->price, 2) ?></h5>
+              <span class="product-stock <?= $stockClass ?>"><?= $stockText ?></span>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+                <form method="POST" action="/cart/add">
+                  <input type="hidden" name="product_id" value="<?= $p->productId ?>">
+                  <button type="submit" class="btn-add" style="width:100%;" <?= $p->stockLevel == 0 ? 'disabled' : '' ?>>
+                    <?php if ($inCart): ?>
+                      <i class="fas fa-plus"></i> Add Another
+                    <?php else: ?>
+                      <i class="fas fa-shopping-cart"></i> Add To Cart
+                    <?php endif; ?>
+                  </button>
+                </form>
+                <?php if ($p->stockLevel > 0): ?>
+                <form method="POST" action="/cart/buy-now">
+                  <input type="hidden" name="product_id" value="<?= $p->productId ?>">
+                  <button type="submit" class="btn-add" style="width:100%;background:#ff6b6b;color:white;border-color:#ff6b6b;">
+                    <i class="fas fa-bolt"></i> Buy Now
+                  </button>
+                </form>
+                <?php endif; ?>
+              </div>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <div style="text-align:center; margin-top:20px;">
+        <a href="/catalog" class="hero-btn" style="display:inline-block;">View All Products</a>
       </div>
     </div>
 
@@ -261,22 +322,22 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
         <div>
           <h4 class="footer-title">Quick Shop</h4>
           <ul class="footer-links">
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Home</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Our Shop</a></li>
+            <li><a href="/"><i class="fa fa-angle-right mr-2"></i>Home</a></li>
+            <li><a href="/"><i class="fa fa-angle-right mr-2"></i>Our Shop</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shop Detail</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shopping Cart</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
+            <li><a href="/checkout"><i class="fa fa-angle-right mr-2"></i>Shopping Cart</a></li>
+            <li><a href="/checkout"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Contact Us</a></li>
           </ul>
         </div>
         <div>
           <h4 class="footer-title">My Account</h4>
           <ul class="footer-links">
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Home</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Our Shop</a></li>
+            <li><a href="/"><i class="fa fa-angle-right mr-2"></i>Home</a></li>
+            <li><a href="/"><i class="fa fa-angle-right mr-2"></i>Our Shop</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shop Detail</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Shopping Cart</a></li>
-            <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
+            <li><a href="/checkout"><i class="fa fa-angle-right mr-2"></i>Shopping Cart</a></li>
+            <li><a href="/checkout"><i class="fa fa-angle-right mr-2"></i>Checkout</a></li>
             <li><a href="#"><i class="fa fa-angle-right mr-2"></i>Contact Us</a></li>
           </ul>
         </div>
@@ -315,5 +376,64 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
       }
     });
   </script>
+  <style>
+    .btn-favourite-hp:hover, .btn-favourite-hp.active {
+      color: #ff6b6b !important;
+      border-color: #ff6b6b !important;
+    }
+    .product-stock { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 2px; margin-top: 5px; }
+    .stock-in  { background: #e8f5e9; color: #388e3c; }
+    .stock-low { background: #fff3e0; color: #f57c00; }
+    .stock-out { background: #fce4ec; color: #c62828; }
+  </style>
+
+  <script>
+    // ── Shared Favourites (localStorage) ─────────────────────
+    const FAVES_KEY = 'vm_favourites';
+    function getFavourites() {
+      try { return JSON.parse(localStorage.getItem(FAVES_KEY)) || []; } catch (_) { return []; }
+    }
+    function saveFavourites(faves) { localStorage.setItem(FAVES_KEY, JSON.stringify(faves)); }
+
+    function toggleFavourite(btn, productId, title) {
+      let faves = getFavourites();
+      const idx = faves.findIndex(f => f.id === productId);
+      if (idx === -1) {
+        faves.push({ id: productId, title });
+        btn.classList.add('active');
+        showFaveToast('❤️ Added to Favourites: ' + title);
+      } else {
+        faves.splice(idx, 1);
+        btn.classList.remove('active');
+        showFaveToast('🤍 Removed from Favourites: ' + title);
+      }
+      saveFavourites(faves);
+    }
+
+    function showFaveToast(msg) {
+      let toast = document.getElementById('fave-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'fave-toast';
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:4px;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:280px;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+    }
+
+    // Restore active state on load
+    document.addEventListener('DOMContentLoaded', () => {
+      const faves = getFavourites();
+      document.querySelectorAll('[data-product-id]').forEach(btn => {
+        if (faves.some(f => f.id === parseInt(btn.dataset.productId))) {
+          btn.classList.add('active');
+        }
+      });
+    });
+  </script>
+
 </body>
 </html>

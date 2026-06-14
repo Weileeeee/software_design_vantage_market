@@ -45,7 +45,7 @@ final class AuthController
             $this->jsonSuccess([
                 'message' => 'Registration successful! Welcome to VantageMarket.',
                 'user'    => $user->toPublicArray(),
-                'redirect'=> '/dashboard',
+                'redirect'=> '/',
             ], 201);
 
         } catch (ValidationException $e) {
@@ -74,10 +74,32 @@ final class AuthController
         try {
             $user = $this->loginService->login($_POST, $ip, $rememberMe);
 
+            // Check if this user is also an admin (matched by email)
+            $db = \VantageMarket\Config\Database::getInstance();
+            $adminStmt = $db->prepare(
+                'SELECT admin_id, username, email FROM Admin WHERE email = :e AND is_active = 1 LIMIT 1'
+            );
+            $adminStmt->execute([':e' => $user->emailAddress]);
+            $admin = $adminStmt->fetch(\PDO::FETCH_ASSOC);
+
+            if ($admin) {
+                // Grant admin session keys so AdminController::requireAdmin() passes
+                $_SESSION['admin_id']       = $admin['admin_id'];
+                $_SESSION['admin_username'] = $admin['username'];
+                $_SESSION['admin_email']    = $admin['email'];
+                // Log the admin login
+                $db->prepare(
+                    'UPDATE Admin SET last_login = NOW() WHERE admin_id = :id'
+                )->execute([':id' => $admin['admin_id']]);
+            }
+
+            $redirect = $_SESSION['intended_url'] ?? '/';
+            unset($_SESSION['intended_url']);
+
             $this->jsonSuccess([
                 'message'  => 'Login successful.',
                 'user'     => $user->toPublicArray(),
-                'redirect' => $_SESSION['intended_url'] ?? '/dashboard',
+                'redirect' => $redirect,
             ]);
 
         } catch (ValidationException $e) {
@@ -109,7 +131,16 @@ final class AuthController
             $this->loginService->logout($userId);
         }
 
-        $this->jsonSuccess(['message' => 'You have been logged out.', 'redirect' => '/']);
+        // If called via AJAX/fetch, return JSON; otherwise redirect directly
+        $wantsJson = ($_SERVER['HTTP_ACCEPT'] ?? '') === 'application/json'
+            || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
+
+        if ($wantsJson) {
+            $this->jsonSuccess(['message' => 'You have been logged out.', 'redirect' => '/']);
+        } else {
+            header('Location: /');
+            exit;
+        }
     }
 
     // ----------------------------------------------------------
@@ -200,6 +231,8 @@ final class AuthController
 
     private function jsonSuccess(array $data, int $status = 200): void
     {
+        // Discard any buffered output (PHP warnings/notices) before sending JSON
+        while (ob_get_level()) ob_end_clean();
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['success' => true, ...$data], JSON_UNESCAPED_UNICODE);
@@ -208,6 +241,7 @@ final class AuthController
 
     private function jsonError(string $message, int $status = 400, array $errors = []): void
     {
+        while (ob_get_level()) ob_end_clean();
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         $payload = ['success' => false, 'message' => $message];

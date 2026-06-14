@@ -1,0 +1,12 @@
+Options -MultiViews -Indexes
+RewriteEngine On
+
+# If mod_rewrite isn't working, try DirectoryIndex fallback
+DirectoryIndex index.php
+
+# Skip real files and directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Route everything through index.php, preserving query string
+RewriteRule ^(.*)$ index.php [QSA,L]
