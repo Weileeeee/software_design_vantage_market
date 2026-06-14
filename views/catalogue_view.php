@@ -200,7 +200,8 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
             <a href="/login">Sign In</a>
             <a href="/register">Register</a>
           <?php else: ?>
-            <a href="/">Homepage</a>
+            <a href="/orders">My Orders</a>
+            <a href="/logout">Sign Out</a>
           <?php endif; ?>
         </div>
       </div>

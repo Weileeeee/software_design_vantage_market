@@ -595,23 +595,31 @@ INSERT INTO Categories (category_name) VALUES
 -- Password: Admin@1234 (bcrypt hash — change before deployment)
 -- =============================================================
 
+-- Admin account: email must also exist in Users table for login to work.
+-- Login at /signin with: admin@vantagemarket.com / Admin@1234
 INSERT INTO Admin (username, password_hash, email) VALUES
     ('admin_leong',
-     '$2y$12$examplehashplaceholder.AdminLeong',
+     '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
      'admin@vantagemarket.com');
 
 
 -- =============================================================
 -- SEED DATA — Sample Users
--- Passwords: User@1234 (hashed — illustrative only)
+-- Passwords below:
+--   admin@vantagemarket.com → Admin@1234  (also grants admin access)
+--   alice@example.com       → User@1234
+--   bob@example.com         → User@1234
 -- =============================================================
 
 INSERT INTO Users (email_address, password_hash, first_name, last_name) VALUES
+    ('admin@vantagemarket.com',
+     '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+     'Admin', 'Leong'),
     ('alice@example.com',
-     '$2y$12$examplehashplaceholder.AliceTan',
+     '$2y$12$K8GpQ4VbWZ3nP0YxX1z2BeO5j4LwCdT7sM8rN6hA9uFmE3iD1cVqI',
      'Alice', 'Tan'),
     ('bob@example.com',
-     '$2y$12$examplehashplaceholder.BobChong',
+     '$2y$12$K8GpQ4VbWZ3nP0YxX1z2BeO5j4LwCdT7sM8rN6hA9uFmE3iD1cVqI',
      'Bob', 'Chong');
 
 

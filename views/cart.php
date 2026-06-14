@@ -123,6 +123,7 @@ foreach ($cartItems as $item) {
             <a href="/signin">Sign In</a>
             <a href="/register">Register</a>
           <?php else: ?>
+            <a href="/orders">My Orders</a>
             <a href="/logout">Sign Out</a>
           <?php endif; ?>
         </div>

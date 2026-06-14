@@ -7,6 +7,11 @@
 
 declare(strict_types=1);
 
+// Buffer all output so PHP errors don't corrupt JSON API responses
+ob_start();
+
+use VantageMarket\Controllers\CheckoutController;
+
 $container = require_once __DIR__ . '/../bootstrap.php';
 $auth = $container['auth'];
 $middleware = $container['middleware'];
@@ -180,7 +185,7 @@ match (true) {
 
     $path === '/checkout/selected' && $method === 'POST'
         => (function () use ($container): void {
-            // Checkout only the user-selected products from the cart
+            // Filter cart to selected products, store in session, then hand off to CheckoutController
             $session = $container['session'];
             $session->start();
             $cartRepo = $container['cartRepository'];
@@ -189,124 +194,38 @@ match (true) {
                 ? $cartRepo->findOrCreateForUser($session->currentUserId())
                 : $cartRepo->findOrCreateForSession(session_id());
 
-            $allItems = $cartRepo->getItems($cart->cartId);
-
-            // Filter to selected product IDs only
+            $allItems    = $cartRepo->getItems($cart->cartId);
             $selectedIds = array_map('intval', $_POST['selected_products'] ?? []);
-            $cartItems   = array_values(array_filter(
+            $filtered    = array_values(array_filter(
                 $allItems,
                 fn($item) => in_array((int)$item['product_id'], $selectedIds, true)
             ));
 
-            if (empty($cartItems)) {
+            if (empty($filtered)) {
                 header('Location: /cart?action=noselect');
                 exit;
             }
 
-            // Store selected items in session so /checkout/process can use them
-            $_SESSION['vm_checkout_items'] = $cartItems;
-
-            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
-            $userName = $_SESSION['user_name'] ?? 'Guest User';
-            include __DIR__ . '/../views/checkout.php';
+            // Persist selected items so CheckoutController can use them
+            $_SESSION['vm_checkout_items'] = $filtered;
+            header('Location: /checkout');
+            exit;
         })(),
 
     $path === '/checkout' && $method === 'GET'
-        => (function () use ($container): void {
-            /** @var \VantageMarket\Services\SessionManager $session */
-            $session = $container['session'];
-            $session->start();
-            $cartRepo = $container['cartRepository'];
-            
-            $cart = $session->isAuthenticated() 
-                ? $cartRepo->findOrCreateForUser($session->currentUserId())
-                : $cartRepo->findOrCreateForSession(session_id());
-            $cartItems = $cartRepo->getItems($cart->cartId);
-            
-            if (empty($cartItems)) {
-                header('Location: /cart?action=empty');
-                exit;
-            }
-            
-            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
-            $userName = $_SESSION['user_name'] ?? 'Guest User';
-            
-            include __DIR__ . '/../views/checkout.php';
+        => (function () use ($container, $middleware): void {
+            $middleware->requireAuth('/checkout');
+            $db = \VantageMarket\Config\Database::getInstance();
+            $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
+            $controller->index();
         })(),
 
     $path === '/checkout/process' && $method === 'POST'
-        => (function () use ($container): void {
-            /** @var \VantageMarket\Services\SessionManager $session */
-            $session = $container['session'];
-            $session->start();
-            $cartRepo = $container['cartRepository'];
-
-            $cart = $session->isAuthenticated()
-                ? $cartRepo->findOrCreateForUser($session->currentUserId())
-                : $cartRepo->findOrCreateForSession(session_id());
-
-            // Use session-stored selected items (set by /checkout/selected),
-            // falling back to all cart items for direct /checkout GET flows
-            if (!empty($_SESSION['vm_checkout_items'])) {
-                $cartItems = $_SESSION['vm_checkout_items'];
-            } else {
-                $cartItems = $cartRepo->getItems($cart->cartId);
-            }
-
-            if (empty($cartItems)) {
-                $userType = $session->isAuthenticated() ? 'User' : 'Guest';
-                $userName = $_SESSION['user_name'] ?? 'Guest User';
-                $success  = false;
-                $checkoutLog = "<p style='color:#c62828;'>Your cart is empty. Please select items before placing an order.</p>";
-                include __DIR__ . '/../views/checkout.php';
-                exit;
-            }
-            
-            $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0.0);
-            $paymentMethod = $_POST['payment_method'] ?? '';
-            
-            // Strategy Pattern: Client instantiates the correct concrete strategy
-            $strategy = null;
-            if ($paymentMethod === 'credit_card') {
-                $strategy = new \VantageMarket\Strategy\CreditCardPayment($_POST['card_number'] ?? '0000000000000000');
-            } elseif ($paymentMethod === 'ewallet') {
-                $strategy = new \VantageMarket\Strategy\EWalletPayment($_POST['wallet_id'] ?? 'UnknownWallet');
-            } elseif ($paymentMethod === 'fpx') {
-                $strategy = new \VantageMarket\Strategy\FPXBankingPayment($_POST['bank_code'] ?? 'MBB0228');
-            } elseif ($paymentMethod === 'cod') {
-                $strategy = new \VantageMarket\Strategy\CashOnDeliveryPayment();
-            }
-            
-            // Context Class
-            $checkoutSession = new \VantageMarket\Services\CheckoutSession($cartTotal);
-            if ($strategy) {
-                $checkoutSession->setPaymentStrategy($strategy);
-            }
-            
-            // Start output buffering to capture the echo statements for the view
-            ob_start();
-            $success = $checkoutSession->executeCheckout();
-            $checkoutLog = ob_get_clean();
-            
-            if ($success) {
-                // Remove only the ordered items from the cart
-                foreach ($cartItems as $item) {
-                    $cartRepo->removeItem($cart->cartId, (int)$item['product_id']);
-                }
-                // Detach observers for ordered items
-                $stockSubject = $container['stockSubject'];
-                foreach ($cartItems as $item) {
-                    $stockSubject->detach((int)$item['product_id'], $cart->cartId);
-                }
-                // Clear the session-stored checkout items
-                unset($_SESSION['vm_checkout_items']);
-            }
-            
-            $userType = $session->isAuthenticated() ? 'User' : 'Guest';
-            $userName = $_SESSION['user_name'] ?? 'Guest User';
-            
-            // Show the result in the checkout view
-            include __DIR__ . '/../views/checkout.php';
+        => (function () use ($container, $middleware): void {
+            $middleware->requireAuth('/checkout');
+            $db = \VantageMarket\Config\Database::getInstance();
+            $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
+            $controller->processCheckout();
         })(),
 
     $path === '/product/update-stock' && $method === 'POST'
@@ -447,6 +366,204 @@ match (true) {
     // Protected API — returns current user info
     $path === '/api/me'          && $method === 'GET'
         => $auth->me(),
+
+
+    // ==========================================================
+    // Admin Panel (UC08, UC09)
+    // ==========================================================
+
+    // Admin login — reuses the normal /signin page
+    // Sets intended_url so after login user is sent to /admin/dashboard
+    $path === '/admin/login' && $method === 'GET'
+        => (function (): void {
+            session_start();
+            $_SESSION['intended_url'] = '/admin/dashboard';
+            header('Location: /signin'); exit;
+        })(),
+    $path === '/admin/logout'
+        => (function (): void {
+            session_start();
+            // Clear admin session keys then do normal logout
+            unset($_SESSION['admin_id'], $_SESSION['admin_username'], $_SESSION['admin_email']);
+            header('Location: /signin'); exit;
+        })(),
+
+    // Dashboard
+    $path === '/admin' || $path === '/admin/dashboard'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->dashboard();
+        })(),
+
+    // Products
+    $path === '/admin/products' && $method === 'GET'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->productList();
+        })(),
+    $path === '/admin/products/new' && $method === 'GET'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->productForm(0);
+        })(),
+    preg_match('#^/admin/products/edit/(\d+)$#', $path, $m) && $method === 'GET'
+        => (function () use ($m): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->productForm((int)$m[1]);
+        })(),
+    $path === '/admin/products/save' && $method === 'POST'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->productSave();
+        })(),
+    $path === '/admin/products/delete' && $method === 'POST'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->productDelete();
+        })(),
+
+    // Orders
+    $path === '/admin/orders' && $method === 'GET'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->orderList();
+        })(),
+    preg_match('#^/admin/orders/(\d+)$#', $path, $m) && $method === 'GET'
+        => (function () use ($m): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->orderDetail((int)$m[1]);
+        })(),
+    $path === '/admin/orders/update-status' && $method === 'POST'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->orderUpdateStatus();
+        })(),
+
+    // Users
+    $path === '/admin/users' && $method === 'GET'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->userList();
+        })(),
+    $path === '/admin/users/toggle' && $method === 'POST'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->userToggleActive();
+        })(),
+
+    // Promotions
+    $path === '/admin/promotions' && $method === 'GET'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->promotionList();
+        })(),
+    $path === '/admin/promotions/save' && $method === 'POST'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->promotionSave();
+        })(),
+    $path === '/admin/promotions/delete' && $method === 'POST'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->promotionDelete();
+        })(),
+
+    // Reports & Audit
+    $path === '/admin/reports'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->reports();
+        })(),
+    $path === '/admin/audit'
+        => (function (): void {
+            session_start();
+            $ctrl = new \VantageMarket\Controllers\AdminController();
+            $ctrl->auditLogView();
+        })(),
+
+    // ==========================================================
+    // Order Tracking (UC07)
+    // ==========================================================
+
+    // POST /orders/place — convert cart → order
+    $path === '/orders/place' && $method === 'POST'
+        => (function () use ($container): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->place();
+        })(),
+
+    // GET /orders — list all orders for current user/session
+    $path === '/orders' && $method === 'GET'
+        => (function () use ($container): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->index();
+        })(),
+
+    // GET /orders/123 — single order tracker view
+    preg_match('#^/orders/(\d+)$#', $path, $m) && $method === 'GET'
+        => (function () use ($container, $m): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->show((int) $m[1]);
+        })(),
+
+    // POST /orders/123/advance — advance status (admin/demo)
+    preg_match('#^/orders/(\d+)/advance$#', $path, $m) && $method === 'POST'
+        => (function () use ($container, $m): void {
+            $controller = new \VantageMarket\Controllers\OrderController(
+                new \VantageMarket\Services\OrderRepository(),
+                $container['cartRepository'],
+                $container['session'],
+            );
+            $controller->advance((int) $m[1]);
+        })(),
+
+    // Checkout success page
+    $path === '/checkout/success' && $method === 'GET'
+        => (function () use ($container, $middleware): void {
+            $middleware->requireAuth('/checkout');
+            $session = $container['session'];
+            $session->start();
+            $orderId  = (int)($_GET['order'] ?? 0);
+            $userName = $_SESSION['user_name'] ?? 'Guest User';
+            $userType = 'User';
+            $successMessage = $_SESSION['success_message'] ?? null;
+            unset($_SESSION['success_message'], $_SESSION['vm_checkout_items']);
+            include __DIR__ . '/../views/checkout_success.php';
+        })(),
+
+    // Protected dashboard
+    $path === '/dashboard'
+        => (function () use ($middleware): void {
+            $middleware->requireAuth('/dashboard');
+            include __DIR__ . '/../views/dashboard.php';
+        })(),
 
     // 404 catch-all
     default => (function (): void {

@@ -12,6 +12,7 @@ namespace VantageMarket\Services;
 use VantageMarket\Exceptions\AccountLockedException;
 use VantageMarket\Exceptions\InvalidCredentialsException;
 use VantageMarket\Exceptions\ValidationException;
+use VantageMarket\Config\Database;
 use VantageMarket\Models\User;
 
 final class UserLoginService
@@ -45,10 +46,57 @@ final class UserLoginService
         // 1. Basic field presence check
         $this->validator->validateLogin($data);
 
-        $email = strtolower(trim($data['email']));
+        $email    = strtolower(trim($data['email']));
+        $password = $data['password'];
 
-        // 2. Look up the user — use generic error if not found
-        //    (UC04 business rule: never confirm if email exists)
+        // 2a. Check Admin table FIRST — admin credentials take priority
+        try {
+            $db        = \VantageMarket\Config\Database::getInstance();
+            $adminStmt = $db->prepare(
+                'SELECT admin_id, username, password_hash, email, is_active
+                 FROM Admin WHERE email = :e LIMIT 1'
+            );
+            $adminStmt->execute([':e' => $email]);
+            $admin = $adminStmt->fetch(\PDO::FETCH_ASSOC);
+
+            if ($admin !== false && !empty($admin['is_active'])) {
+                if (password_verify($password, $admin['password_hash'])) {
+                    // ✅ Admin login success
+                    $this->session->start();
+                    $_SESSION['admin_id']       = (int) $admin['admin_id'];
+                    $_SESSION['admin_username'] = $admin['username'];
+                    $_SESSION['admin_email']    = $admin['email'];
+                    $_SESSION['user_name']      = $admin['username'];
+
+                    $db->prepare('UPDATE Admin SET last_login = NOW() WHERE admin_id = :id')
+                       ->execute([':id' => $admin['admin_id']]);
+
+                    $redirect = $_SESSION['intended_url'] ?? '/admin/dashboard';
+                    unset($_SESSION['intended_url']);
+
+                    // Clear any buffered output (errors/warnings) before sending JSON
+                    while (ob_get_level()) ob_end_clean();
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode([
+                        'success'  => true,
+                        'message'  => 'Welcome, ' . $admin['username'] . '!',
+                        'redirect' => $redirect,
+                    ]);
+                    exit;
+                } else {
+                    // Admin email found but wrong password — fail immediately
+                    $this->logger->logFailedLogin(null, $ip);
+                    throw new InvalidCredentialsException('Invalid email or password. Please try again.');
+                }
+            }
+        } catch (InvalidCredentialsException $e) {
+            throw $e; // Re-throw login failures
+        } catch (\Throwable $e) {
+            // DB error or other issue — fall through to normal user login
+            error_log('Admin login check failed: ' . $e->getMessage());
+        }
+
+        // 2b. Not an admin — look up in Users table
         $user = $this->repository->findByEmail($email);
 
         if ($user === null) {

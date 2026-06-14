@@ -164,12 +164,14 @@
       });
 
       let data;
+      const rawText = await res.text();
       try {
-        data = await res.json();
+        data = JSON.parse(rawText);
       } catch (_) {
-        // Response wasn't JSON — server may not be routing through index.php
+        // Response wasn't JSON — likely a PHP error
         setLoading(false);
-        showAlert('error', 'Server error. Please ensure the app is running through index.php.');
+        const preview = rawText.replace(/<[^>]*>/g, '').trim().slice(0, 200);
+        showAlert('error', 'Server error: ' + (preview || 'Unknown error. Check PHP error logs.'));
         return;
       }
 
