@@ -1,7 +1,13 @@
 -- =============================================================
 -- VantageMarket E-Commerce System
--- Complete Database Schema
+-- Complete Database Schema (Consolidated)
 -- Course: CSE6234 Software Design | Group: TT5L_G2
+--
+-- This is the single source of truth for the database. It folds
+-- 
+--
+-- Run this single file against an empty database to get a fully
+-- working schema, no other .sql files required.
 -- =============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -53,6 +59,51 @@ CREATE TABLE IF NOT EXISTS Users (
     PRIMARY KEY (user_id),
     UNIQUE KEY uq_email (email_address),
     INDEX idx_email_lookup (email_address)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- =============================================================
+-- TABLE: Remember_Tokens
+-- UC04: Persistent "Remember Me" login tokens
+-- Token stored as SHA-256 hash — raw token only goes in cookie
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS Remember_Tokens (
+    token_id    INT             NOT NULL AUTO_INCREMENT,
+    user_id     INT             NOT NULL,
+    token_hash  VARCHAR(64)     NOT NULL,
+    expires_at  DATETIME        NOT NULL,
+    created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (token_id),
+    UNIQUE KEY uq_remember_user (user_id),       -- one token per user
+    UNIQUE KEY uq_remember_hash (token_hash),
+    CONSTRAINT fk_remember_user
+        FOREIGN KEY (user_id) REFERENCES Users (user_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX idx_remember_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- =============================================================
+-- TABLE: Password_Reset_Tokens
+-- UC04: Forgot-password flow — single-use, time-limited
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS Password_Reset_Tokens (
+    token_id    INT             NOT NULL AUTO_INCREMENT,
+    user_id     INT             NOT NULL,
+    token_hash  VARCHAR(64)     NOT NULL,
+    expires_at  DATETIME        NOT NULL,
+    created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (token_id),
+    UNIQUE KEY uq_reset_user (user_id),          -- one pending reset per user
+    UNIQUE KEY uq_reset_hash (token_hash),
+    CONSTRAINT fk_reset_user
+        FOREIGN KEY (user_id) REFERENCES Users (user_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX idx_reset_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
@@ -119,6 +170,8 @@ CREATE TABLE IF NOT EXISTS Products (
     brand               VARCHAR(100)             DEFAULT NULL,
     sku                 VARCHAR(100)    NOT NULL
                                         COMMENT 'Stock Keeping Unit — must be unique',
+    image_url           VARCHAR(512)             DEFAULT NULL
+                                        COMMENT 'Direct URL to product image (e.g. https://example.com/photo.jpg)',
     customer_rating     FLOAT                    DEFAULT NULL
                                         COMMENT 'Average rating 0.0 – 5.0',
     is_digital          BOOLEAN         NOT NULL DEFAULT FALSE,
@@ -306,8 +359,8 @@ CREATE TABLE IF NOT EXISTS Orders (
     promo_id      INT                       DEFAULT NULL,
     address_id    INT             NOT NULL,
     subtotal      DECIMAL(10, 2)  NOT NULL,
-    tax_amount    DECIMAL(10, 2)  NOT NULL DEFAULT 0.00,
-    shipping_fee  DECIMAL(10, 2)  NOT NULL DEFAULT 0.00,
+    tax_amount    DECIMAL(10, 2)  NOT NULL DEFAULT 2.00,
+    shipping_fee  DECIMAL(10, 2)  NOT NULL DEFAULT 4.00,
     total_amount  DECIMAL(10, 2)  NOT NULL,
     status        VARCHAR(30)     NOT NULL DEFAULT 'pending'
                                   COMMENT 'pending | confirmed | processing | shipped | delivered | cancelled | refunded',
@@ -511,10 +564,20 @@ SELECT
     p.is_digital,
     p.is_age_restricted,
     c.category_name,
-    (SELECT pi.image_url
-     FROM Product_Images pi
-     WHERE pi.product_id = p.product_id AND pi.is_primary = TRUE
-     LIMIT 1) AS primary_image
+    COALESCE(
+        (SELECT pi.image_url
+         FROM Product_Images pi
+         WHERE pi.product_id = p.product_id AND pi.is_primary = TRUE
+         LIMIT 1),
+        p.image_url
+    ) AS image_url,
+    COALESCE(
+        (SELECT pi.image_url
+         FROM Product_Images pi
+         WHERE pi.product_id = p.product_id AND pi.is_primary = TRUE
+         LIMIT 1),
+        p.image_url
+    ) AS primary_image
 FROM Products p
 JOIN Categories c ON p.category_id = c.category_id
 WHERE p.status = 'active';
@@ -599,7 +662,7 @@ INSERT INTO Categories (category_name) VALUES
 -- Login at /signin with: admin@vantagemarket.com / Admin@1234
 INSERT INTO Admin (username, password_hash, email) VALUES
     ('admin_leong',
-     '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+     '$2y$10$xV1Fx0r3lNDiydwkqMqqKezwUa7lBjme3fJSxPYAAUcNTFD8cYoXe',
      'admin@vantagemarket.com');
 
 
@@ -674,5 +737,5 @@ WHERE c.category_name = 'Gift Cards';
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- =============================================================
--- END OF SCHEMA — VantageMarket v1.0
+-- END OF SCHEMA — VantageMarket (consolidated)
 -- =============================================================

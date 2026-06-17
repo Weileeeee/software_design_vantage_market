@@ -4,6 +4,11 @@ namespace VantageMarket\Controllers;
 
 use Exception;
 use PDO;
+use VantageMarket\Services\CheckoutSession;
+use VantageMarket\Strategy\CashOnDeliveryPayment;
+use VantageMarket\Strategy\CreditCardPayment;
+use VantageMarket\Strategy\EWalletPayment;
+use VantageMarket\Strategy\FPXBankingPayment;
 
 class CheckoutController
 {
@@ -138,6 +143,36 @@ class CheckoutController
             $finalTotalAmount = $subtotal - $discountAmount;
 
             // ------------------------------------------
+            // PHASE 2.5: Payment Processing (Strategy Pattern)
+            // ------------------------------------------
+            $paymentMethod = $_POST['payment_method'] ?? '';
+
+            // Client code picks the concrete strategy based on user selection.
+            // Whichever one is chosen, the call site below (executeCheckout)
+            // stays identical — that's the whole point of the pattern.
+            $strategy = match ($paymentMethod) {
+                'credit_card' => new CreditCardPayment($_POST['card_number'] ?? '0000000000000000'),
+                'fpx'         => new FPXBankingPayment($_POST['bank_code'] ?? 'MBB0228'),
+                'ewallet'     => new EWalletPayment($_POST['wallet_id'] ?? 'TNG-Wallet'),
+                'cod'         => new CashOnDeliveryPayment(),
+                default       => throw new Exception('Please select a valid payment method.'),
+            };
+
+            // Context class: delegates the actual charge to whichever strategy was injected
+            $checkoutSession = new CheckoutSession($finalTotalAmount);
+            $checkoutSession->setPaymentStrategy($strategy);
+
+            // Strategies echo a short confirmation line; capture it instead of
+            // letting it leak into the redirect response body
+            ob_start();
+            $paymentSuccess = $checkoutSession->executeCheckout();
+            ob_end_clean();
+
+            if (!$paymentSuccess) {
+                throw new Exception("Payment via {$strategy->getMethodName()} could not be processed.");
+            }
+
+            // ------------------------------------------
             // PHASE 3: Order Creation (UC06)
             // ------------------------------------------
 
@@ -181,7 +216,7 @@ class CheckoutController
 
             // Clear session checkout state
             unset($_SESSION['vm_checkout_items']);
-            $_SESSION['success_message'] = "Order #{$newOrderId} successfully placed!";
+            $_SESSION['success_message'] = "Order #{$newOrderId} successfully placed! Paid via {$strategy->getMethodName()}.";
 
             // Redirect to success page
             header("Location: /checkout/success?order=" . $newOrderId);
