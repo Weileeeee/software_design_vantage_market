@@ -132,14 +132,18 @@ final class UserRepository
     public function storeRememberToken(int $userId, string $tokenHash, string $expiresAt): void
     {
         // Upsert: one token per user (replace on duplicate)
+        // Use uniquely-named placeholders for the UPDATE clause —
+        // PDO does not support reusing the same named parameter twice.
         $this->db->prepare(
             'INSERT INTO Remember_Tokens (user_id, token_hash, expires_at)
              VALUES (:uid, :hash, :exp)
-             ON DUPLICATE KEY UPDATE token_hash = :hash, expires_at = :exp'
+             ON DUPLICATE KEY UPDATE token_hash = :hash2, expires_at = :exp2'
         )->execute([
-            ':uid'  => $userId,
-            ':hash' => $tokenHash,
-            ':exp'  => $expiresAt,
+            ':uid'   => $userId,
+            ':hash'  => $tokenHash,
+            ':exp'   => $expiresAt,
+            ':hash2' => $tokenHash,
+            ':exp2'  => $expiresAt,
         ]);
     }
 
@@ -170,14 +174,18 @@ final class UserRepository
     /** Store hashed reset token with expiry */
     public function storeResetToken(int $userId, string $tokenHash, string $expiresAt): void
     {
+        // Use uniquely-named placeholders for the UPDATE clause —
+        // PDO does not support reusing the same named parameter twice.
         $this->db->prepare(
             'INSERT INTO Password_Reset_Tokens (user_id, token_hash, expires_at)
              VALUES (:uid, :hash, :exp)
-             ON DUPLICATE KEY UPDATE token_hash = :hash, expires_at = :exp'
+             ON DUPLICATE KEY UPDATE token_hash = :hash2, expires_at = :exp2'
         )->execute([
-            ':uid'  => $userId,
-            ':hash' => $tokenHash,
-            ':exp'  => $expiresAt,
+            ':uid'   => $userId,
+            ':hash'  => $tokenHash,
+            ':exp'   => $expiresAt,
+            ':hash2' => $tokenHash,
+            ':exp2'  => $expiresAt,
         ]);
     }
 

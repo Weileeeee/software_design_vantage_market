@@ -127,15 +127,26 @@ class CartRepository
      */
     public function addItem(int $cartId, int $productId, int $qty = 1): void
     {
+        $stmt = $this->db->prepare('SELECT stock_level FROM Products WHERE product_id = ?');
+        $stmt->execute([$productId]);
+        $stockLevel = $stmt->fetchColumn();
+        
+        if ($stockLevel !== false) {
+            $qty = min($qty, $stockLevel);
+        } else {
+            $stockLevel = 9999;
+        }
+
         $this->db->prepare(
             'INSERT INTO Cart_Items (cart_id, product_id, quantity)
-             VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE quantity = quantity + ?'
+             VALUES (:cid, :pid, :qty)
+             ON DUPLICATE KEY UPDATE quantity = LEAST(quantity + :qty2, :stock)'
         )->execute([
-            $cartId,
-            $productId,
-            $qty,
-            $qty,
+            ':cid' => $cartId,
+            ':pid' => $productId,
+            ':qty' => $qty,
+            ':qty2' => $qty,
+            ':stock' => $stockLevel
         ]);
     }
 
@@ -174,6 +185,16 @@ class CartRepository
         if ($newQty <= 0) {
             $this->removeItem($cartId, $productId);
             return;
+        }
+
+        $stmt = $this->db->prepare('SELECT stock_level FROM Products WHERE product_id = ?');
+        $stmt->execute([$productId]);
+        $stockLevel = $stmt->fetchColumn();
+
+        if ($stockLevel !== false) {
+            $newQty = min($newQty, $stockLevel);
+        } else {
+            $stockLevel = 9999;
         }
 
         $this->db->prepare(

@@ -194,9 +194,22 @@ match (true) {
                 ? $cartRepo->findOrCreateForUser($session->currentUserId())
                 : $cartRepo->findOrCreateForSession(session_id());
 
-            $allItems    = $cartRepo->getItems($cart->cartId);
+            // Save quantity modifications from the cart page back to the database
             $selectedIds = array_map('intval', $_POST['selected_products'] ?? []);
-            $filtered    = array_values(array_filter(
+            $quantities  = $_POST['quantities'] ?? [];
+
+            foreach ($selectedIds as $pid) {
+                if (isset($quantities[$pid])) {
+                    $newQty = (int)$quantities[$pid];
+                    if ($newQty > 0) {
+                        $cartRepo->updateItemQuantity($cart->cartId, $pid, $newQty);
+                    }
+                }
+            }
+
+            // Now fetch the updated items from DB
+            $allItems = $cartRepo->getItems($cart->cartId);
+            $filtered = array_values(array_filter(
                 $allItems,
                 fn($item) => in_array((int)$item['product_id'], $selectedIds, true)
             ));

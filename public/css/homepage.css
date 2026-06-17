@@ -315,6 +315,7 @@ button { font-family: inherit; }
   font-size: 48px;
   color: #dee2e6;
   border-bottom: 1px solid var(--border-color);
+  overflow: hidden;
 }
 .product-body { padding: 20px; }
 .product-title {

@@ -20,10 +20,17 @@
 <div class="card" style="padding:0;">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>ID</th><th>Title</th><th>SKU</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Image</th><th>ID</th><th>Title</th><th>SKU</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
         <?php foreach ($products as $p): ?>
         <tr>
+          <td>
+            <?php if (!empty($p['image_url'])): ?>
+              <img src="<?= htmlspecialchars($p['image_url']) ?>" style="width:42px;height:42px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0;" onerror="this.style.display='none';">
+            <?php else: ?>
+              <div style="width:42px;height:42px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#bbb;"><i class="fas fa-image"></i></div>
+            <?php endif; ?>
+          </td>
           <td><?= $p['product_id'] ?></td>
           <td><strong><?= htmlspecialchars($p['title']) ?></strong></td>
           <td style="color:#7f8c8d;font-size:12px;"><?= htmlspecialchars($p['sku']) ?></td>
@@ -45,7 +52,7 @@
           </td>
         </tr>
         <?php endforeach; ?>
-        <?php if (empty($products)): ?><tr><td colspan="8" style="text-align:center;color:#7f8c8d;padding:30px;">No products found.</td></tr><?php endif; ?>
+        <?php if (empty($products)): ?><tr><td colspan="9" style="text-align:center;color:#7f8c8d;padding:30px;">No products found.</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

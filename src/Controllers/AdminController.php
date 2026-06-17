@@ -161,6 +161,7 @@ final class AdminController
         $desc  = trim($_POST['description'] ?? '');
         $brand = trim($_POST['brand'] ?? '');
         $sku   = trim($_POST['sku'] ?? '');
+        $image = trim($_POST['image_url'] ?? '');
         $active = isset($_POST['is_active']) ? 'active' : 'archived';
 
         if (!$title || $price <= 0) {
@@ -175,9 +176,9 @@ final class AdminController
 
             $this->db->prepare(
                 'UPDATE Products SET title=:t, description=:d, price=:p, stock_level=:s,
-                 category_id=:c, brand=:b, sku=:k, status=:a WHERE product_id=:id'
+                 category_id=:c, brand=:b, sku=:k, image_url=:img, status=:a WHERE product_id=:id'
             )->execute([':t'=>$title,':d'=>$desc,':p'=>$price,':s'=>$stock,
-                        ':c'=>$cat,':b'=>$brand,':k'=>$sku,':a'=>$active,':id'=>$id]);
+                        ':c'=>$cat,':b'=>$brand,':k'=>$sku,':img'=>$image,':a'=>$active,':id'=>$id]);
 
             $this->auditLog('EDIT_PRODUCT', 'Products', $id,
                 json_encode(['before' => $beforeData,
@@ -186,10 +187,10 @@ final class AdminController
             header("Location: /admin/products/edit/$id"); exit;
         } else {
             $this->db->prepare(
-                'INSERT INTO Products (category_id,title,description,price,stock_level,brand,sku,status)
-                 VALUES (:c,:t,:d,:p,:s,:b,:k,:a)'
+                'INSERT INTO Products (category_id,title,description,price,stock_level,brand,sku,image_url,status)
+                 VALUES (:c,:t,:d,:p,:s,:b,:k,:img,:a)'
             )->execute([':c'=>$cat,':t'=>$title,':d'=>$desc,':p'=>$price,
-                        ':s'=>$stock,':b'=>$brand,':k'=>$sku,':a'=>$active]);
+                        ':s'=>$stock,':b'=>$brand,':k'=>$sku,':img'=>$image,':a'=>$active]);
             $newId = (int)$this->db->lastInsertId();
             $this->auditLog('ADD_PRODUCT', 'Products', $newId,
                 json_encode(compact('title','price','stock')));

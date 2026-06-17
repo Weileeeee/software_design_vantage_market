@@ -102,16 +102,23 @@ final class UserMailer
     private function send(string $to, string $subject, string $htmlBody): void
     {
         // In production: swap mail() for PHPMailer / Symfony Mailer / SES SDK.
-        // Using mail() here for zero-dependency illustration.
+        // mail() requires a configured SMTP server in php.ini — on local dev
+        // (XAMPP/WAMP) this is usually NOT configured, so we suppress errors
+        // and log instead of letting a PHP warning corrupt JSON API responses.
         $headers  = "MIME-Version: 1.0\r\n";
         $headers .= "Content-type: text/html; charset=UTF-8\r\n";
         $headers .= "From: {$this->fromName} <{$this->fromAddress}>\r\n";
         $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
 
-        $sent = mail($to, $subject, $htmlBody, $headers);
+        try {
+            $sent = @mail($to, $subject, $htmlBody, $headers);
+        } catch (\Throwable $e) {
+            $sent = false;
+            error_log("[Mailer] Exception sending '{$subject}' to {$to}: " . $e->getMessage());
+        }
 
         if (!$sent) {
-            error_log("[Mailer] Failed to send '{$subject}' to {$to}");
+            error_log("[Mailer] Failed to send '{$subject}' to {$to} — mail() may not be configured (normal on local dev).");
         }
     }
 
