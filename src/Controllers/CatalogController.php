@@ -53,6 +53,7 @@ class CatalogController
         // Wait, the index.php router will set $cartItems before calling index(), so we can use them in the view!
         
         // Send the complete dataset to your layout view
+        global $cartItems, $userType, $userName;
         include __DIR__ . '/../../views/catalogue_view.php';
     }
 }

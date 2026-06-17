@@ -39,7 +39,15 @@ class CheckoutController
             exit;
         }
 
-        // 4. Load the visual UI page
+        // 4. Extract any checkout errors from the session to display in the UI
+        $checkoutError = $_SESSION['checkout_error'] ?? null;
+        unset($_SESSION['checkout_error']);
+
+        // Provide user info to the view so it displays the correct account instead of "Guest"
+        $userType = $this->session->isAuthenticated() ? 'User' : 'Guest';
+        $userName = $_SESSION['user_name'] ?? 'Guest User';
+
+        // 5. Load the visual UI page
         include __DIR__ . '/../../views/checkout_view.php';
     }
 

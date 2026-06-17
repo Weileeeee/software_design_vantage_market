@@ -72,10 +72,18 @@
     banner.className='alert';setLoading(true);
     try{
       const res=await fetch('/forgot-password',{method:'POST',headers:{'Accept':'application/json'},body:new URLSearchParams(new FormData(form))});
-      const data=await res.json();
+      const rawText=await res.text();
+      let data;
+      try{ data=JSON.parse(rawText); }
+      catch(_){
+        setLoading(false);
+        const preview=rawText.replace(/<[^>]*>/g,'').trim().slice(0,200);
+        showAlert('error','Server error: '+(preview||'Unknown error. Check PHP error logs.'));
+        return;
+      }
       if(data.success){form.style.display='none';footer.style.display='none';success.style.display='block';}
       else{setLoading(false);showAlert('error',data.message??'Something went wrong.');}
-    }catch{setLoading(false);showAlert('error','Network error. Please try again.');}
+    }catch{setLoading(false);showAlert('error','Unable to connect to the server. Please check your connection and try again.');}
   });
 })();
 </script>

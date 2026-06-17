@@ -87,8 +87,7 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
         </div>
         <div class="nav-links">
           <a href="/" style="color:var(--primary)">Home</a>
-          <a href="/">Shop</a>
-          <a href="#">Shop Detail</a>
+          <a href="/catalog">Shop</a>
           <?php if ($userType === 'Guest'): ?>
             <a href="/signin">Sign In</a>
             <a href="/register">Register</a>
@@ -153,10 +152,16 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
       <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
         <?php foreach (array_slice($products, 0, 8) as $p): ?>
           <?php
-            $inCart = false;
+            $cartQty = 0;
             foreach ($cartItems as $ci) {
-                if ($ci['product_id'] == $p->productId) { $inCart = true; break; }
+                if ($ci['product_id'] == $p->productId) { 
+                    $cartQty = (int)$ci['quantity'];
+                    break; 
+                }
             }
+            $inCart = $cartQty > 0;
+            $maxReached = $p->stockLevel > 0 && $cartQty >= $p->stockLevel;
+
             $stockClass = 'stock-in'; $stockText = 'In Stock';
             if ($p->stockLevel == 0) { $stockClass = 'stock-out'; $stockText = 'Out of Stock'; }
             elseif ($p->stockLevel <= 10) { $stockClass = 'stock-low'; $stockText = 'Low Stock'; }
@@ -170,8 +175,15 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
               title="Add to Favourites"
               style="position:absolute;top:10px;right:10px;border:1px solid #eee;background:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#ccc;font-size:15px;transition:0.2s;"
             ><i class="fas fa-heart"></i></button>
-            <div class="product-img" style="background:#f8f9fa; display:flex; align-items:center; justify-content:center; height:160px;">
-              <i class="fas fa-box-open" style="font-size:40px; color:#ccc;"></i>
+            <div class="product-img" style="background:#f8f9fa; display:flex; align-items:center; justify-content:center; height:160px; overflow:hidden;">
+              <?php if (!empty($p->imageUrl)): ?>
+                <img src="<?= htmlspecialchars($p->imageUrl) ?>" alt="<?= htmlspecialchars($p->title) ?>"
+                     style="width:100%;height:100%;object-fit:cover;"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+                <i class="fas fa-box-open" style="font-size:40px; color:#ccc; display:none;"></i>
+              <?php else: ?>
+                <i class="fas fa-box-open" style="font-size:40px; color:#ccc;"></i>
+              <?php endif; ?>
             </div>
             <div class="product-body">
               <h6 class="product-title"><?= htmlspecialchars($p->title) ?></h6>
@@ -180,8 +192,10 @@ $cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] 
               <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
                 <form method="POST" action="/cart/add">
                   <input type="hidden" name="product_id" value="<?= $p->productId ?>">
-                  <button type="submit" class="btn-add" style="width:100%;" <?= $p->stockLevel == 0 ? 'disabled' : '' ?>>
-                    <?php if ($inCart): ?>
+                  <button type="submit" class="btn-add" style="width:100%;" <?= ($p->stockLevel == 0 || $maxReached) ? 'disabled' : '' ?>>
+                    <?php if ($maxReached): ?>
+                      <i class="fas fa-ban"></i> Max In Cart
+                    <?php elseif ($inCart): ?>
                       <i class="fas fa-plus"></i> Add Another
                     <?php else: ?>
                       <i class="fas fa-shopping-cart"></i> Add To Cart

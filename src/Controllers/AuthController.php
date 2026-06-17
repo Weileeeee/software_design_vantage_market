@@ -79,7 +79,7 @@ final class AuthController
             $adminStmt = $db->prepare(
                 'SELECT admin_id, username, email FROM Admin WHERE email = :e AND is_active = 1 LIMIT 1'
             );
-            $adminStmt->execute([':e' => $user->emailAddress]);
+            $adminStmt->execute([':e' => $user->email]);
             $admin = $adminStmt->fetch(\PDO::FETCH_ASSOC);
 
             if ($admin) {

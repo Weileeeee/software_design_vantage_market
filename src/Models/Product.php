@@ -26,6 +26,7 @@ final class Product
         public readonly int     $stockLevel,
         public readonly ?string $brand,
         public readonly string  $sku,
+        public readonly ?string $imageUrl       = null,
         public readonly string  $status        = 'active',
         public readonly bool    $isDigital      = false,
         public readonly bool    $isAgeRestricted = false,

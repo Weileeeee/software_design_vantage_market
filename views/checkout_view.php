@@ -203,7 +203,8 @@
 
                     <div class="mb-3">
                         <label class="form-label small text-muted text-uppercase fw-bold">Payment Method</label>
-                        <select name="payment_method" class="form-control form-control-custom" required>
+                        <select name="payment_method" form="checkoutForm" class="form-control form-control-custom" required>
+                            <option value="" disabled selected>Select a payment method...</option>
                             <option value="credit_card">💳 Credit / Debit Card</option>
                             <option value="fpx">🏦 FPX Online Banking</option>
                             <option value="ewallet">📱 E-Wallet (Touch 'n Go / GrabPay)</option>
@@ -221,6 +222,27 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.getElementById('checkoutForm').addEventListener('submit', function(e) {
+            // Because the button is outside the form, HTML5 validation might fail silently on some browsers.
+            // This manually checks if the form is valid.
+            if (!this.checkValidity()) {
+                e.preventDefault();
+                alert('Please fill out all required fields, including Shipping Address and Payment Method.');
+            }
+        });
+
+        // Also catch clicks on the external submit button to ensure validity is checked properly
+        document.querySelector('button[form="checkoutForm"]').addEventListener('click', function(e) {
+            const form = document.getElementById('checkoutForm');
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                form.reportValidity(); // Tries to show native tooltip
+                alert('Please make sure you have filled out the Shipping Address and selected a Payment Method.');
+            }
+        });
+    </script>
 </body>
 
 </html>

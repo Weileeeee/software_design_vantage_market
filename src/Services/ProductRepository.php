@@ -157,6 +157,7 @@ final class ProductRepository
             stockLevel:      (int)  $row['stock_level'],
             brand:                  $row['brand'] ?? null,
             sku:                    $row['sku'],
+            imageUrl:               $row['image_url']       ?? null,
             status:                 $row['status']          ?? 'active',
             isDigital:       (bool) $row['is_digital'],
             isAgeRestricted: (bool) $row['is_age_restricted'],

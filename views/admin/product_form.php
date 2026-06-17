@@ -43,6 +43,20 @@ include __DIR__ . '/_layout.php';
         <label>Brand</label>
         <input type="text" name="brand" class="form-control" value="<?= htmlspecialchars($product['brand'] ?? '') ?>" placeholder="e.g. Logitech">
       </div>
+      <div class="form-group" style="grid-column:span 2;">
+        <label>Image URL</label>
+        <input type="url" name="image_url" id="image_url_input" class="form-control"
+               value="<?= htmlspecialchars($product['image_url'] ?? '') ?>"
+               placeholder="https://example.com/photo.jpg" oninput="previewProductImage()">
+        <p style="font-size:12px;color:#7f8c8d;margin-top:4px;">
+          Paste a direct image link (e.g. from <a href="https://imgur.com" target="_blank" style="color:#ff6b6b;">imgur.com</a> or any image hosting site).
+        </p>
+        <div id="image_preview_wrap" style="margin-top:10px;<?= empty($product['image_url']) ? 'display:none;' : '' ?>">
+          <img id="image_preview" src="<?= htmlspecialchars($product['image_url'] ?? '') ?>"
+               style="max-width:160px;max-height:160px;border:1px solid #e0e0e0;border-radius:6px;object-fit:cover;"
+               onerror="this.style.display='none';" onload="this.style.display='block';">
+        </div>
+      </div>
     </div>
     <div class="form-group">
       <label>Description</label>
@@ -60,5 +74,19 @@ include __DIR__ . '/_layout.php';
     </div>
   </form>
 </div>
+
+<script>
+function previewProductImage() {
+  const url = document.getElementById('image_url_input').value.trim();
+  const wrap = document.getElementById('image_preview_wrap');
+  const img  = document.getElementById('image_preview');
+  if (url) {
+    img.src = url;
+    wrap.style.display = 'block';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+</script>
 
 <?php include __DIR__ . '/_layout_end.php'; ?>

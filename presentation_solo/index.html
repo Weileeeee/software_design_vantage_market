@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VantageMarket — Software Design Presentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:   #1a56db;
+      --primary-d: #1341b0;
+      --accent:    #f59e0b;
+      --accent2:   #10b981;
+      --danger:    #ef4444;
+      --bg:        #f8faff;
+      --surface:   #ffffff;
+      --surface2:  #f0f4ff;
+      --border:    #d1d9f0;
+      --text:      #0f172a;
+      --text-2:    #475569;
+      --text-3:    #94a3b8;
+      --mono:      'JetBrains Mono', monospace;
+      --radius:    14px;
+      --slide-w:   1200px;
+      --slide-h:   675px;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: #1a2340;
+      overflow: hidden;
+    }
+
+    /* ── Slideshow Shell ──────────────────────────────────────── */
+    #app {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px;
+    }
+
+    #slide-container {
+      width: var(--slide-w);
+      height: var(--slide-h);
+      position: relative;
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.5);
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    /* ── Progress Bar ─────────────────────────────────────────── */
+    #progress-bar {
+      position: absolute; top: 0; left: 0;
+      height: 4px; background: var(--primary);
+      transition: width .4s ease;
+      z-index: 100;
+    }
+
+    /* ── Slides ───────────────────────────────────────────────── */
+    .slide {
+      position: absolute; inset: 0;
+      display: none;
+      flex-direction: column;
+      padding: 0;
+      animation: fadeIn .35s ease;
+    }
+    .slide.active { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Slide Header Bar ─────────────────────────────────────── */
+    .slide-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 22px 40px 18px;
+      background: linear-gradient(135deg, #1a3a8f 0%, #1a56db 100%);
+      border-bottom: 3px solid var(--accent);
+    }
+    .slide-header .icon {
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,.15);
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .slide-header h2 {
+      color: #fff; font-size: 22px; font-weight: 700; letter-spacing: -.3px;
+    }
+    .slide-header .slide-num {
+      margin-left: auto;
+      color: rgba(255,255,255,.55);
+      font-size: 13px; font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Slide Body ───────────────────────────────────────────── */
+    .slide-body {
+      flex: 1; overflow: hidden;
+      padding: 28px 40px 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* ── Typography ───────────────────────────────────────────── */
+    h3 { font-size: 16px; font-weight: 700; color: var(--primary); margin-bottom: 2px; }
+    p, li { font-size: 14.5px; color: var(--text-2); line-height: 1.65; }
+    ul { padding-left: 18px; }
+    li + li { margin-top: 5px; }
+
+    /* ── Cards / Tiles ────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+
+    .card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      position: relative;
+      transition: box-shadow .2s;
+    }
+    .card:hover { box-shadow: 0 6px 20px rgba(26,86,219,.12); }
+    .card .card-icon {
+      font-size: 22px; margin-bottom: 8px; display: block;
+    }
+    .card h3 { font-size: 14px; margin-bottom: 6px; }
+    .card p, .card li { font-size: 13px; }
+
+    .card.accent { border-left: 4px solid var(--accent); }
+    .card.primary { border-left: 4px solid var(--primary); }
+    .card.green  { border-left: 4px solid var(--accent2); }
+    .card.red    { border-left: 4px solid var(--danger); }
+
+    /* ── Badge / Tag ──────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px; border-radius: 999px;
+      font-size: 11.5px; font-weight: 600;
+    }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge-amber  { background: #fef3c7; color: #b45309; }
+    .badge-green  { background: #d1fae5; color: #065f46; }
+    .badge-slate  { background: #e2e8f0; color: #475569; }
+    .badge-red    { background: #fee2e2; color: #b91c1c; }
+
+    /* ── Code snippet ─────────────────────────────────────────── */
+    .code-block {
+      background: #0f172a; border-radius: 10px;
+      padding: 14px 18px; overflow-x: auto;
+    }
+    .code-block code {
+      font-family: var(--mono); font-size: 12px;
+      color: #e2e8f0; line-height: 1.7;
+    }
+    .kw  { color: #93c5fd; }
+    .fn  { color: #6ee7b7; }
+    .st  { color: #fcd34d; }
+    .cm  { color: #64748b; }
+    .ty  { color: #f0abfc; }
+
+    /* ── Arrow diagram ────────────────────────────────────────── */
+    .flow {
+      display: flex; align-items: center; gap: 8px;
+      flex-wrap: wrap;
+    }
+    .flow-box {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      white-space: nowrap;
+    }
+    .flow-box.highlight { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+    .flow-box.amber     { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+    .flow-box.green     { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .flow-arrow { color: #94a3b8; font-size: 16px; font-weight: 700; }
+
+    /* ── Table ────────────────────────────────────────────────── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th {
+      background: #1a3a8f; color: #fff;
+      padding: 9px 12px; text-align: left; font-weight: 600;
+    }
+    .data-table td {
+      padding: 8px 12px; color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table tr:nth-child(even) td { background: var(--surface2); }
+
+    /* ── Section label ────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; color: var(--primary);
+      border-left: 3px solid var(--accent);
+      padding-left: 8px; margin-bottom: 4px;
+    }
+
+    /* ── Divider ──────────────────────────────────────────────── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+    /* ── Checklist ────────────────────────────────────────────── */
+    .checklist li { list-style: none; padding-left: 0; display: flex; align-items: flex-start; gap: 8px; }
+    .checklist .ck { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Controls ─────────────────────────────────────────────── */
+    #controls {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .ctrl-btn {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.25);
+      background: rgba(255,255,255,.1);
+      color: #fff; font-size: 18px;
+      cursor: pointer; display: grid; place-items: center;
+      transition: background .2s, border-color .2s;
+      backdrop-filter: blur(6px);
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.5); }
+    .ctrl-btn:disabled { opacity: .3; cursor: default; }
+
+    #slide-counter {
+      color: rgba(255,255,255,.7);
+      font-size: 13px; font-weight: 500; min-width: 60px; text-align: center;
+    }
+
+    /* ── Slide-specific styles ────────────────────────────────── */
+
+    /* TITLE SLIDE */
+    #slide-1 {
+      background: linear-gradient(145deg, #0d1b4b 0%, #1a3a8f 50%, #1a56db 100%);
+    }
+    #slide-1 .title-content {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 40px;
+      gap: 18px;
+    }
+    #slide-1 .logo-mark {
+      width: 80px; height: 80px; border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), #f97316);
+      display: grid; place-items: center;
+      font-size: 36px;
+      box-shadow: 0 12px 40px rgba(245,158,11,.4);
+      animation: pulse 3s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    #slide-1 h1 {
+      font-size: 46px; font-weight: 900; color: #fff;
+      letter-spacing: -1.5px; line-height: 1.1;
+    }
+    #slide-1 h1 span { color: var(--accent); }
+    #slide-1 .subtitle {
+      font-size: 16px; color: rgba(255,255,255,.7); max-width: 560px;
+    }
+    #slide-1 .meta-row {
+      display: flex; gap: 20px; align-items: center; margin-top: 10px;
+    }
+    #slide-1 .meta-pill {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 13px; color: rgba(255,255,255,.85); font-weight: 500;
+      backdrop-filter: blur(6px);
+    }
+
+    /* ARCHITECTURE DIAGRAM */
+    .arch-layer {
+      display: flex; align-items: center;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 10px 16px; gap: 12px;
+    }
+    .arch-layer-label {
+      width: 110px; flex-shrink: 0;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .7px; color: var(--primary);
+    }
+    .arch-items {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .arch-item {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 12px;
+      font-size: 12px; font-weight: 500; color: var(--text);
+    }
+
+    /* COMPONENT DIAGRAM */
+    .comp-diagram {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 10px; align-items: center;
+    }
+    .comp-col { display: flex; flex-direction: column; gap: 8px; }
+    .comp-box {
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 9px 14px;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      text-align: center;
+    }
+    .comp-box.db    { border-color: #93c5fd; background: #dbeafe; color: #1e40af; }
+    .comp-box.svc   { border-color: #6ee7b7; background: #d1fae5; color: #065f46; }
+    .comp-box.view  { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
+    .comp-box.ctrl  { border-color: #c4b5fd; background: #ede9fe; color: #4c1d95; }
+    .comp-center {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .comp-center .core {
+      background: linear-gradient(135deg, #1a3a8f, #1a56db);
+      color: #fff; border-radius: 10px; padding: 12px 18px;
+      font-size: 13px; font-weight: 700; text-align: center;
+      box-shadow: 0 4px 16px rgba(26,86,219,.25);
+    }
+
+    /* Pattern card large */
+    .pattern-card {
+      background: var(--surface2); border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      padding: 16px 18px;
+      display: flex; gap: 14px; align-items: flex-start;
+    }
+    .pattern-icon {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border-radius: 10px;
+      display: grid; place-items: center; font-size: 20px;
+    }
+    .p-blue   { background: #dbeafe; }
+    .p-green  { background: #d1fae5; }
+    .p-amber  { background: #fef3c7; }
+    .pattern-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .pattern-sub   { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+
+    /* I/O table */
+    .io-section { display: flex; flex-direction: column; gap: 6px; }
+    .io-row {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 8px 12px;
+      background: var(--surface2); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .io-label {
+      flex-shrink: 0; width: 95px;
+      font-size: 11.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: var(--primary); padding-top: 1px;
+    }
+    .io-value { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+
+    /* Solution grid */
+    .sol-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .sol-tick { font-size: 20px; flex-shrink: 0; }
+    .sol-text { font-size: 13.5px; font-weight: 600; color: var(--text); }
+
+    /* Work segregation table */
+    .member-row { display: grid; grid-template-columns: 160px 1fr; gap: 12px; align-items: start; }
+    .member-name {
+      font-size: 14px; font-weight: 700; color: var(--primary);
+      padding-top: 2px;
+    }
+    .task-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .task-pill {
+      font-size: 12px; font-weight: 500;
+      padding: 4px 12px; border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--text-2); background: var(--surface2);
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="slide-container">
+    <div id="progress-bar"></div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 1 — TITLE
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide active" id="slide-1">
+      <div class="title-content">
+        <div class="logo-mark">🛒</div>
+        <h1>Vantage<span>Market</span></h1>
+        <p class="subtitle">
+          An Amazon-inspired web-based e-commerce platform built with modern software design patterns and a robust, scalable architecture.
+        </p>
+        <div class="meta-row">
+          <div class="meta-pill">📚 CSE6234 Software Design</div>
+          <div class="meta-pill">👥 Group TT5L – G2</div>
+          <div class="meta-pill">🗓️ 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 2 — SYSTEM OBJECTIVES
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-2">
+      <div class="slide-header">
+        <div class="icon">🎯</div>
+        <h2>System Objectives</h2>
+        <span class="slide-num">02 / 09</span>
+      </div>
+      <div class="slide-body">
+        <div class="grid-2" style="flex:1; gap:12px;">
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="card primary">
+              <span class="card-icon">🏗️</span>
+              <h3>Apply Design Patterns</h3>
+              <p>Demonstrate Singleton, Strategy, and Observer GoF patterns in a real-world e-commerce context, enforcing SOLID principles throughout the codebase.</p>
+            </div>
+            <div class="card green">
+              <span class="card-icon">🔒</span>
+              <h3>Secure User Authentication</h3>
+              <p>Implement bcrypt password hashing, session management, remember-me cookies, account locking after failed attempts, and email-based password reset.</p>
+            </div>
+            <div class="card accent">
+              <span class="card-icon">💳</span>
+              <h3>Flexible Payment Processing</h3>
+              <p>Provide multiple interchangeable payment strategies — Credit Card, E-Wallet, FPX Banking, and Cash on Delivery — adhering to the Open/Closed Principle.</p>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div class="card accent">
+              <span class="card-icon">📦</span>
+              <h3>Real-Time Stock Management</h3>
+              <p>Use the Observer Pattern to automatically detach out-of-stock products from all active shopping carts without requiring client polling.</p>
+            </div>
+            <div class="card primary">
+              <span class="card-icon">🔍</span>
+              <h3>Full-Featured Catalogue</h3>
+              <p>Enable full-text product search, category filtering, price range sliders, and stock-level filters for a premium shopping experience.</p>
+            </div>
+            <div class="card green">
+              <span class="card-icon">🗄️</span>
+              <h3>Relational Data Integrity</h3>
+              <p>Design a normalized MySQL schema with audit logs, security logs, and pre-configured SQL views to support reporting and inventory management.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 3 — SYSTEM SCOPE
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-3">
+      <div class="slide-header">
+        <div class="icon">🗺️</div>
+        <h2>System Scope</h2>
+        <span class="slide-num">03 / 09</span>
+      </div>
+      <div class="slide-body" style="gap:14px;">
+
+        <div class="grid-2" style="flex:1;">
+          <div>
+            <div class="section-label">✅ In Scope</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+              <div class="io-row">
+                <div class="io-label">Auth</div>
+                <div class="io-value">Registration, login/logout, remember-me, account lock, password reset via email token</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Catalogue</div>
+                <div class="io-value">Full-text search, category / price / stock filters, product cards with favourites</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Cart</div>
+                <div class="io-value">Add / remove items, persistent guest &amp; user carts, real-time out-of-stock removal</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Checkout</div>
+                <div class="io-value">Strategy-based payment selection, order creation, payment record, email confirmation</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Favourites</div>
+                <div class="io-value">localStorage-persisted liked products, displayed on /likes page</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Security</div>
+                <div class="io-value">Security &amp; audit logs, restricted keyword detection, failed-login tracking</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-label">🚫 Out of Scope</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+              <div class="io-row" style="border-left:3px solid var(--danger);">
+                <div class="io-label" style="color:var(--danger);">Admin UI</div>
+                <div class="io-value">No admin dashboard or CMS — admin actions managed at DB level only</div>
+              </div>
+              <div class="io-row" style="border-left:3px solid var(--danger);">
+                <div class="io-label" style="color:var(--danger);">Real Payments</div>
+                <div class="io-value">Payment strategies are simulated; no live gateway integration</div>
+              </div>
+              <div class="io-row" style="border-left:3px solid var(--danger);">
+                <div class="io-label" style="color:var(--danger);">Logistics</div>
+                <div class="io-value">No shipping tracking or courier API integration</div>
+              </div>
+              <div class="io-row" style="border-left:3px solid var(--danger);">
+                <div class="io-label" style="color:var(--danger);">Mobile App</div>
+                <div class="io-value">Web-only; no native iOS/Android client</div>
+              </div>
+              <div class="io-row" style="border-left:3px solid var(--danger);">
+                <div class="io-label" style="color:var(--danger);">Reviews</div>
+                <div class="io-value">Product review / ratings feature not implemented</div>
+              </div>
+            </div>
+
+            <div style="margin-top:14px; padding:12px 14px; background:#f0f4ff; border-radius:10px; border:1px solid #c7d7fa;">
+              <p style="font-size:13px; color:#1e40af; font-weight:600; margin-bottom:4px;">📌 Target Users</p>
+              <p style="font-size:13px; color:var(--text-2);">General public (guests &amp; registered shoppers). Admins interact via direct DB access. PHP 8.1 + MySQL 8.0 + Apache stack.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 4 — SYSTEM OVERVIEW
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-4">
+      <div class="slide-header">
+        <div class="icon">🌐</div>
+        <h2>System Overview</h2>
+        <span class="slide-num">04 / 09</span>
+      </div>
+      <div class="slide-body" style="gap:14px;">
+
+        <p style="font-size:14px; color:var(--text-2);">VantageMarket is a server-rendered PHP MVC web application backed by a MySQL relational database, served through Apache with URL rewriting.</p>
+
+        <div class="flow" style="justify-content:center; padding:6px 0;">
+          <div class="flow-box highlight">Browser / Client</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box">Apache + .htaccess</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box highlight">public/index.php (Router)</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box">Controller</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box green">Service / Repository</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box amber">MySQL DB</div>
+        </div>
+
+        <div class="grid-3" style="flex:1;">
+          <div class="card primary">
+            <span class="card-icon">🔀</span>
+            <h3>Routing Layer</h3>
+            <p><code style="font-family:var(--mono);font-size:11px;background:#e2e8f0;padding:1px 5px;border-radius:4px;">public/index.php</code> acts as the single entry point. A route table maps URL slugs to Controller methods. Middleware guards protected routes.</p>
+          </div>
+          <div class="card green">
+            <span class="card-icon">⚙️</span>
+            <h3>Business Logic Layer</h3>
+            <p>Services (UserLoginService, CartRepository, CheckoutSession, etc.) encapsulate all domain logic. Design patterns live here — Singleton DB, Strategy payment, Observer stock.</p>
+          </div>
+          <div class="card accent">
+            <span class="card-icon">🗃️</span>
+            <h3>Data / Persistence Layer</h3>
+            <p>All DB access through Repository classes using the <span class="badge badge-blue">Singleton</span> PDO connection. 9 core tables + 4 SQL Views + Security &amp; Audit logs.</p>
+          </div>
+        </div>
+
+        <div style="background:#0f172a;border-radius:10px;padding:10px 18px;">
+          <p style="font-family:var(--mono);font-size:12px;color:#94a3b8;">
+            <span style="color:#6ee7b7;">Stack:</span>&nbsp;
+            <span style="color:#e2e8f0;">PHP 8.1</span> &nbsp;|&nbsp;
+            <span style="color:#e2e8f0;">MySQL 8.0</span> &nbsp;|&nbsp;
+            <span style="color:#e2e8f0;">Apache mod_rewrite</span> &nbsp;|&nbsp;
+            <span style="color:#e2e8f0;">Vanilla JS / CSS</span> &nbsp;|&nbsp;
+            <span style="color:#e2e8f0;">PSR-4 Autoloader via bootstrap.php</span>
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 5 — COMPONENT LEVEL DIAGRAM
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-5">
+      <div class="slide-header">
+        <div class="icon">🧩</div>
+        <h2>Component Level Diagram</h2>
+        <span class="slide-num">05 / 09</span>
+      </div>
+      <div class="slide-body" style="gap:12px;">
+
+        <!-- Diagram -->
+        <div style="display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr 40px 1fr;gap:0;align-items:center;flex:1;">
+
+          <!-- Views column -->
+          <div style="display:flex;flex-direction:column;gap:7px;height:100%;">
+            <div class="section-label" style="text-align:center;">Views</div>
+            <div class="comp-box view" style="font-size:12px;">homepage.php</div>
+            <div class="comp-box view" style="font-size:12px;">catalogue_view.php</div>
+            <div class="comp-box view" style="font-size:12px;">cart.php</div>
+            <div class="comp-box view" style="font-size:12px;">checkout.php</div>
+            <div class="comp-box view" style="font-size:12px;">login / register</div>
+            <div class="comp-box view" style="font-size:12px;">likes.php</div>
+          </div>
+
+          <div style="text-align:center;color:#94a3b8;font-size:20px;font-weight:700;">⇄</div>
+
+          <!-- Controllers -->
+          <div style="display:flex;flex-direction:column;gap:7px;height:100%;">
+            <div class="section-label" style="text-align:center;">Controllers</div>
+            <div class="comp-box ctrl" style="font-size:12px;">AuthController.php</div>
+            <div class="comp-box ctrl" style="font-size:12px;">CatalogController.php</div>
+            <div class="comp-box" style="font-size:12px;">AuthMiddleware.php</div>
+            <div class="comp-box" style="font-size:12px;">Router (index.php)</div>
+          </div>
+
+          <div style="text-align:center;color:#94a3b8;font-size:20px;font-weight:700;">⇄</div>
+
+          <!-- Services -->
+          <div style="display:flex;flex-direction:column;gap:7px;height:100%;">
+            <div class="section-label" style="text-align:center;">Services / Patterns</div>
+            <div class="comp-box svc" style="font-size:11px;">UserLoginService</div>
+            <div class="comp-box svc" style="font-size:11px;">UserRegistrationService</div>
+            <div class="comp-box svc" style="font-size:11px;">CheckoutSession ⚡Strategy</div>
+            <div class="comp-box svc" style="font-size:11px;">ProductStockSubject 👁️ Observer</div>
+            <div class="comp-box svc" style="font-size:11px;">CartObserver</div>
+            <div class="comp-box svc" style="font-size:11px;">SessionManager / Mailer</div>
+          </div>
+
+          <div style="text-align:center;color:#94a3b8;font-size:20px;font-weight:700;">⇄</div>
+
+          <!-- DB -->
+          <div style="display:flex;flex-direction:column;gap:7px;height:100%;">
+            <div class="section-label" style="text-align:center;">Database</div>
+            <div class="comp-box db" style="font-size:11px;">Database.php 🔵 Singleton</div>
+            <div class="comp-box db" style="font-size:11px;">UserRepository</div>
+            <div class="comp-box db" style="font-size:11px;">CartRepository</div>
+            <div class="comp-box db" style="font-size:11px;">ProductRepository</div>
+            <div class="comp-box db" style="font-size:11px;">OrderRepository</div>
+            <div class="comp-box db" style="font-size:11px;">StockObserverRepository</div>
+          </div>
+
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+          <span class="badge badge-amber">⇄ HTTP Request / Response</span>
+          <span class="badge badge-blue">🔵 Singleton — single DB connection</span>
+          <span class="badge badge-green">⚡ Strategy — runtime payment swap</span>
+          <span class="badge badge-slate">👁️ Observer — stock event notification</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 6 — SINGLETON PATTERN (code deep-dive)
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-6">
+      <div class="slide-header">
+        <div class="icon">🔵</div>
+        <h2>Design Pattern 1 — Singleton</h2>
+        <span class="slide-num">06 / 11</span>
+      </div>
+      <div class="slide-body" style="gap:12px;">
+
+        <!-- Top concept bar -->
+        <div style="display:flex;gap:10px;align-items:stretch;">
+          <div style="flex:1;background:#dbeafe;border:1.5px solid #93c5fd;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">🎯 Intent</div>
+            <p style="font-size:13px;color:#1e3a8a;">Ensure a class has <strong>only one instance</strong> and provide a global access point to it.</p>
+          </div>
+          <div style="flex:1;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">📁 File</div>
+            <p style="font-size:13px;color:#166534;"><code style="font-family:var(--mono);">src/Config/Database.php</code></p>
+          </div>
+          <div style="flex:1;background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">✅ Why needed</div>
+            <p style="font-size:13px;color:#78350f;">Every Repository calls the DB. Without Singleton, each call would create a new PDO connection — wasting memory &amp; causing errors.</p>
+          </div>
+        </div>
+
+        <!-- Code + callouts side by side -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;">
+
+          <!-- Annotated code -->
+          <div class="code-block" style="overflow-y:auto;">
+            <code style="font-size:11.5px;line-height:1.9;">
+<span class="cm">// src/Config/Database.php</span><br>
+<span class="kw">final class</span> <span class="ty">Database</span>  <span class="cm">← ① final prevents subclassing</span><br>
+{<br>
+&nbsp;&nbsp;<span class="kw">private static</span> <span class="ty">?PDO</span> <span class="fn">$instance</span> = <span class="kw">null</span>;  <span class="cm">← ② holds single PDO</span><br>
+<br>
+&nbsp;&nbsp;<span class="kw">private function</span> <span class="fn">__construct</span>() {}  <span class="cm">← ③ blocks new Database()</span><br>
+&nbsp;&nbsp;<span class="kw">private function</span> <span class="fn">__clone</span>() {}      <span class="cm">← ④ blocks clone</span><br>
+&nbsp;&nbsp;<span class="kw">public function</span>  <span class="fn">__wakeup</span>() {         <span class="cm">← ⑤ blocks unserialize</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">throw new</span> <span class="ty">\Exception</span>(<span class="st">&quot;Cannot unserialize.&quot;</span>);<br>
+&nbsp;&nbsp;}<br>
+<br>
+&nbsp;&nbsp;<span class="kw">public static function</span> <span class="fn">getInstance</span>(): <span class="ty">PDO</span><br>
+&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (<span class="kw">self</span>::<span class="fn">$instance</span> === <span class="kw">null</span>) { <span class="cm">← ⑥ lazy init</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$config</span> = <span class="kw">require</span> <span class="st">'config/database.php'</span>;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">self</span>::<span class="fn">$instance</span> = <span class="kw">new</span> <span class="ty">PDO</span>(...<span class="fn">$config</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return self</span>::<span class="fn">$instance</span>;  <span class="cm">← ⑦ always same object</span><br>
+&nbsp;&nbsp;}<br>
+}
+            </code>
+          </div>
+
+          <!-- Explanation callouts -->
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.6px;">Code Walkthrough</div>
+            <div class="io-row">
+              <div class="io-label" style="color:#1d4ed8;font-size:12px;">① final class</div>
+              <div class="io-value" style="font-size:12.5px;">Prevents any subclass from being created, guarding the singleton contract.</div>
+            </div>
+            <div class="io-row">
+              <div class="io-label" style="color:#1d4ed8;font-size:12px;">② $instance</div>
+              <div class="io-value" style="font-size:12.5px;"><code style="font-family:var(--mono);font-size:11px;">private static ?PDO</code> — holds the one shared PDO object. Starts as <code style="font-family:var(--mono);font-size:11px;">null</code>.</div>
+            </div>
+            <div class="io-row">
+              <div class="io-label" style="color:#1d4ed8;font-size:12px;">③ ④ ⑤ guards</div>
+              <div class="io-value" style="font-size:12.5px;">Private constructor + clone + wakeup seal all three PHP backdoors for creating a second instance.</div>
+            </div>
+            <div class="io-row">
+              <div class="io-label" style="color:#1d4ed8;font-size:12px;">⑥ Lazy init</div>
+              <div class="io-value" style="font-size:12.5px;">The PDO connection is only created on first call — not at app boot. Saves memory if the DB is never needed.</div>
+            </div>
+            <div class="io-row">
+              <div class="io-label" style="color:#1d4ed8;font-size:12px;">⑦ return</div>
+              <div class="io-value" style="font-size:12.5px;">Every caller — UserRepository, CartRepository, OrderRepository, etc. — receives the <strong>same</strong> PDO object.</div>
+            </div>
+            <div style="background:#dbeafe;border-radius:8px;padding:9px 12px;margin-top:4px;">
+              <p style="font-size:12.5px;color:#1e40af;">📞 <strong>How it's used:</strong> Every Repository starts with<br><code style="font-family:var(--mono);font-size:11px;">$pdo = Database::getInstance();</code></p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 7 — STRATEGY PATTERN (code deep-dive)
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-7">
+      <div class="slide-header">
+        <div class="icon">⚡</div>
+        <h2>Design Pattern 2 — Strategy</h2>
+        <span class="slide-num">07 / 11</span>
+      </div>
+      <div class="slide-body" style="gap:12px;">
+
+        <!-- Top concept bar -->
+        <div style="display:flex;gap:10px;align-items:stretch;">
+          <div style="flex:1;background:#d1fae5;border:1.5px solid #6ee7b7;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">🎯 Intent</div>
+            <p style="font-size:13px;color:#065f46;">Define a <strong>family of algorithms</strong>, encapsulate each, and make them interchangeable — without changing the client code.</p>
+          </div>
+          <div style="flex:1;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">📁 Files</div>
+            <p style="font-size:13px;color:#166534;"><code style="font-family:var(--mono);font-size:11px;">Strategy/PaymentStrategy.php</code><br><code style="font-family:var(--mono);font-size:11px;">Services/CheckoutSession.php</code><br><code style="font-family:var(--mono);font-size:11px;">Strategy/CreditCardPayment.php</code></p>
+          </div>
+          <div style="flex:1;background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">✅ Benefit (OCP)</div>
+            <p style="font-size:13px;color:#78350f;">Add a new payment method (e.g. PayPal) by creating one new class — <strong>zero changes</strong> to CheckoutSession or any existing code.</p>
+          </div>
+        </div>
+
+        <!-- Code grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex:1;">
+
+          <!-- Interface -->
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;">① Interface (contract)</div>
+            <div class="code-block" style="height:calc(100% - 22px);">
+              <code style="font-size:11px;line-height:1.85;">
+<span class="cm">// PaymentStrategy.php</span><br>
+<span class="kw">interface</span> <span class="ty">PaymentStrategy</span><br>
+{<br>
+&nbsp;&nbsp;<span class="cm">// All strategies MUST</span><br>
+&nbsp;&nbsp;<span class="cm">// implement these two:</span><br>
+<br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">pay</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">float</span> <span class="fn">$amount</span><br>
+&nbsp;&nbsp;): <span class="ty">bool</span>;<br>
+<br>
+&nbsp;&nbsp;<span class="kw">public function</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">getMethodName</span>()<br>
+&nbsp;&nbsp;: <span class="ty">string</span>;<br>
+}
+              </code>
+            </div>
+          </div>
+
+          <!-- Concrete strategy -->
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;">② Concrete Strategy</div>
+            <div class="code-block" style="height:calc(100% - 22px);">
+              <code style="font-size:11px;line-height:1.85;">
+<span class="cm">// CreditCardPayment.php</span><br>
+<span class="kw">class</span> <span class="ty">CreditCardPayment</span><br>
+&nbsp;&nbsp;<span class="kw">implements</span> <span class="ty">PaymentStrategy</span><br>
+{<br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">__construct</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">private string</span> <span class="fn">$cardNumber</span><br>
+&nbsp;&nbsp;) {}<br>
+<br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">pay</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">float</span> <span class="fn">$amount</span><br>
+&nbsp;&nbsp;): <span class="ty">bool</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// charge logic here</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return true</span>;<br>
+&nbsp;&nbsp;}<br>
+<br>
+&nbsp;&nbsp;<span class="kw">public function</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">getMethodName</span>()<br>
+&nbsp;&nbsp;: <span class="ty">string</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="st">'Credit/Debit Card'</span>;<br>
+&nbsp;&nbsp;}<br>
+}
+              </code>
+            </div>
+          </div>
+
+          <!-- Context (CheckoutSession) -->
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;">③ Context — CheckoutSession</div>
+            <div class="code-block" style="height:calc(100% - 22px);">
+              <code style="font-size:11px;line-height:1.85;">
+<span class="cm">// CheckoutSession.php</span><br>
+<span class="kw">class</span> <span class="ty">CheckoutSession</span> {<br>
+&nbsp;&nbsp;<span class="kw">private</span> <span class="ty">?PaymentStrategy</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$strategy</span> = <span class="kw">null</span>;<br>
+<br>
+&nbsp;&nbsp;<span class="cm">// inject at runtime ↓</span><br>
+&nbsp;&nbsp;<span class="kw">public function</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">setPaymentStrategy</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">PaymentStrategy</span> <span class="fn">$s</span><br>
+&nbsp;&nbsp;): <span class="ty">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$this</span>-><span class="fn">strategy</span> = <span class="fn">$s</span>;<br>
+&nbsp;&nbsp;}<br>
+<br>
+&nbsp;&nbsp;<span class="kw">public function</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">executeCheckout</span>()<br>
+&nbsp;&nbsp;: <span class="ty">bool</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// delegates to strategy</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="fn">$this</span>-><span class="fn">strategy</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-><span class="fn">pay</span>(<span class="fn">$this</span>-><span class="fn">cartTotal</span>);<br>
+&nbsp;&nbsp;}<br>
+}
+              </code>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom legend -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="badge badge-green">CreditCardPayment</span>
+          <span class="badge badge-green">EWalletPayment</span>
+          <span class="badge badge-green">FPXBankingPayment</span>
+          <span class="badge badge-green">CashOnDeliveryPayment</span>
+          <span style="font-size:12px;color:var(--text-2);margin-left:6px;">— all implement <code style="font-family:var(--mono);font-size:11px;">PaymentStrategy</code> and are swapped in at runtime</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 8 — OBSERVER PATTERN (code deep-dive)
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-8">
+      <div class="slide-header">
+        <div class="icon">👁️</div>
+        <h2>Design Pattern 3 — Observer</h2>
+        <span class="slide-num">08 / 11</span>
+      </div>
+      <div class="slide-body" style="gap:12px;">
+
+        <!-- Top concept bar -->
+        <div style="display:flex;gap:10px;align-items:stretch;">
+          <div style="flex:1;background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">🎯 Intent</div>
+            <p style="font-size:13px;color:#78350f;">When one object (Subject) changes state, all dependent objects (Observers) are <strong>notified automatically</strong>.</p>
+          </div>
+          <div style="flex:1;background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">📁 Files</div>
+            <p style="font-size:12px;color:#78350f;">
+              <code style="font-family:var(--mono);">Observer/StockSubjectInterface.php</code><br>
+              <code style="font-family:var(--mono);">Observer/StockObserverInterface.php</code><br>
+              <code style="font-family:var(--mono);">Services/ProductStockSubject.php</code><br>
+              <code style="font-family:var(--mono);">Services/CartObserver.php</code>
+            </p>
+          </div>
+          <div style="flex:1;background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:12px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">✅ Why it matters</div>
+            <p style="font-size:13px;color:#78350f;">When a product is bought out, <strong>all carts</strong> holding that item are cleaned automatically — no manual polling or UI refresh needed.</p>
+          </div>
+        </div>
+
+        <!-- Code grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;">
+
+          <!-- Subject -->
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;">Subject — ProductStockSubject.php</div>
+            <div class="code-block" style="height:calc(100% - 22px);overflow-y:auto;">
+              <code style="font-size:11px;line-height:1.85;">
+<span class="kw">final class</span> <span class="ty">ProductStockSubject</span><br>
+&nbsp;&nbsp;<span class="kw">implements</span> <span class="ty">StockSubjectInterface</span><br>
+{<br>
+&nbsp;&nbsp;<span class="cm">// ① register cart as observer</span><br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">attach</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">int</span> <span class="fn">$productId</span>, <span class="ty">int</span> <span class="fn">$cartId</span><br>
+&nbsp;&nbsp;): <span class="ty">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$this</span>-><span class="fn">observerRepo</span>-><span class="fn">register</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$productId</span>, <span class="fn">$cartId</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;);<br>
+&nbsp;&nbsp;}<br>
+<br>
+&nbsp;&nbsp;<span class="cm">// ② remove cart from observer list</span><br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">detach</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">int</span> <span class="fn">$productId</span>, <span class="ty">int</span> <span class="fn">$cartId</span><br>
+&nbsp;&nbsp;): <span class="ty">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$this</span>-><span class="fn">observerRepo</span>-><span class="fn">deregister</span>(...);<br>
+&nbsp;&nbsp;}<br>
+<br>
+&nbsp;&nbsp;<span class="cm">// ③ fire notification to observer</span><br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">notify</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">int</span> <span class="fn">$productId</span>, <span class="ty">int</span> <span class="fn">$newStock</span><br>
+&nbsp;&nbsp;): <span class="ty">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$this</span>-><span class="fn">observer</span>-><span class="fn">update</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$productId</span>, <span class="fn">$newStock</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;);<br>
+&nbsp;&nbsp;}<br>
+<br>
+&nbsp;&nbsp;<span class="cm">// ④ convenience: decrement + notify</span><br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">decrementAndNotify</span>(...)<br>
+&nbsp;&nbsp;: <span class="ty">int</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$new</span> = <span class="fn">$productRepo</span>-><span class="fn">decrementStock</span>(...);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$this</span>-><span class="fn">notify</span>(<span class="fn">$productId</span>, <span class="fn">$new</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="fn">$new</span>;<br>
+&nbsp;&nbsp;}<br>
+}
+              </code>
+            </div>
+          </div>
+
+          <!-- Observer + flow -->
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;">Observer — CartObserver.php</div>
+              <div class="code-block">
+                <code style="font-size:11px;line-height:1.85;">
+<span class="kw">final class</span> <span class="ty">CartObserver</span><br>
+&nbsp;&nbsp;<span class="kw">implements</span> <span class="ty">StockObserverInterface</span><br>
+{<br>
+&nbsp;&nbsp;<span class="kw">public function</span> <span class="fn">update</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">int</span> <span class="fn">$productId</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">int</span> <span class="fn">$newStock</span><br>
+&nbsp;&nbsp;): <span class="ty">void</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (<span class="fn">$newStock</span> > 0) <span class="kw">return</span>; <span class="cm">← still in stock</span><br>
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// stock = 0 → remove from ALL carts</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$cartIds</span> = <span class="fn">$this</span>-><span class="fn">observerRepo</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-><span class="fn">findCartsByProduct</span>(<span class="fn">$productId</span>);<br>
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">foreach</span> (<span class="fn">$cartIds</span> <span class="kw">as</span> <span class="fn">$cartId</span>) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$this</span>-><span class="fn">cartRepo</span>-><span class="fn">removeItem</span>(...);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">$this</span>-><span class="fn">observerRepo</span>-><span class="fn">deregisterAll</span>(...);<br>
+&nbsp;&nbsp;}<br>
+}
+                </code>
+              </div>
+            </div>
+
+            <!-- Sequence flow -->
+            <div style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 16px;">
+              <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:8px;">⏱️ SEQUENCE</div>
+              <div class="flow" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                <div class="flow-box" style="font-size:11.5px;width:100%;">1. User adds item to cart → <code style="font-family:var(--mono);">attach(productId, cartId)</code></div>
+                <div class="flow-arrow" style="margin-left:20px;">↓</div>
+                <div class="flow-box" style="font-size:11.5px;width:100%;">2. Stock_Observers row inserted in DB</div>
+                <div class="flow-arrow" style="margin-left:20px;">↓</div>
+                <div class="flow-box amber" style="font-size:11.5px;width:100%;">3. Checkout → <code style="font-family:var(--mono);">decrementAndNotify()</code> → stock = 0</div>
+                <div class="flow-arrow" style="margin-left:20px;">↓</div>
+                <div class="flow-box green" style="font-size:11.5px;width:100%;">4. <code style="font-family:var(--mono);">CartObserver::update()</code> → removes item from all watching carts</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 9 — INPUT AND OUTPUT
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-9">
+      <div class="slide-header">
+        <div class="icon">↔️</div>
+        <h2>Input and Output</h2>
+        <span class="slide-num">09 / 11</span>
+      </div>
+      <div class="slide-body" style="gap:10px;">
+
+        <div class="grid-2" style="flex:1;gap:14px;">
+
+          <!-- INPUT -->
+          <div>
+            <div class="section-label">📥 System Inputs</div>
+            <div class="io-section" style="margin-top:10px;">
+              <div class="io-row">
+                <div class="io-label">User Auth</div>
+                <div class="io-value">Email, password, name, remember-me flag, reset token</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Search</div>
+                <div class="io-value">Full-text keyword, category ID, min/max price, stock filter</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Cart</div>
+                <div class="io-value">Product ID, quantity, session/user cart ID</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Checkout</div>
+                <div class="io-value">Selected payment strategy, shipping address, cart contents</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Payment</div>
+                <div class="io-value">Card number / wallet ID / bank code (simulated), total amount</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Favourites</div>
+                <div class="io-value">Product ID toggle from browser localStorage</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- OUTPUT -->
+          <div>
+            <div class="section-label">📤 System Outputs</div>
+            <div class="io-section" style="margin-top:10px;">
+              <div class="io-row">
+                <div class="io-label">Pages</div>
+                <div class="io-value">Server-rendered HTML views (Homepage, Catalogue, Cart, Checkout, Likes, Auth)</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">JSON API</div>
+                <div class="io-value"><code style="font-size:11px;background:#e2e8f0;padding:1px 5px;border-radius:3px;font-family:var(--mono);">/api/me</code> — authenticated user info; AJAX login/logout responses</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Email</div>
+                <div class="io-value">Welcome email (registration), password-reset link, account-lock alert, order confirmation</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Stock Alert</div>
+                <div class="io-value">Automatic removal of out-of-stock items from all watching carts (Observer notification)</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Order Record</div>
+                <div class="io-value">Order snapshot in DB (immutable price/qty), payment log, shipping number</div>
+              </div>
+              <div class="io-row">
+                <div class="io-label">Logs</div>
+                <div class="io-value">Security_Log (failed logins), Audit_Log (admin actions), restricted keyword alerts</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 10 — SOLUTION ACHIEVED
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-10">
+      <div class="slide-header">
+        <div class="icon">✅</div>
+        <h2>Solution Achieved?</h2>
+        <span class="slide-num">10 / 11</span>
+      </div>
+      <div class="slide-body" style="gap:12px;">
+
+        <p style="font-size:14px;color:var(--text-2);">All stated objectives were met. Below is a verification summary of each goal against the delivered implementation.</p>
+
+        <div class="grid-2" style="flex:1;gap:10px;">
+
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="sol-item">
+              <div class="sol-tick">✅</div>
+              <div><div class="sol-text">Singleton Pattern Implemented</div><div style="font-size:12px;color:var(--text-2);">Database::getInstance() — single PDO instance across all repositories</div></div>
+            </div>
+            <div class="sol-item">
+              <div class="sol-tick">✅</div>
+              <div><div class="sol-text">Strategy Pattern Implemented</div><div style="font-size:12px;color:var(--text-2);">4 concrete payment strategies selectable at runtime via CheckoutSession</div></div>
+            </div>
+            <div class="sol-item">
+              <div class="sol-tick">✅</div>
+              <div><div class="sol-text">Observer Pattern Implemented</div><div style="font-size:12px;color:var(--text-2);">DB-persisted observer list; carts auto-detach when stock hits zero</div></div>
+            </div>
+            <div class="sol-item">
+              <div class="sol-tick">✅</div>
+              <div><div class="sol-text">Secure Authentication</div><div style="font-size:12px;color:var(--text-2);">bcrypt hashing, login throttling, remember-me, email-token password reset</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="sol-item">
+              <div class="sol-tick">✅</div>
+              <div><div class="sol-text">Full Product Catalogue</div><div style="font-size:12px;color:var(--text-2);">Full-text search + category / price / stock filters with favourites</div></div>
+            </div>
+            <div class="sol-item">
+              <div class="sol-tick">✅</div>
+              <div><div class="sol-text">Guest &amp; Registered User Carts</div><div style="font-size:12px;color:var(--text-2);">Session-based guest cart; DB-persisted cart for logged-in users</div></div>
+            </div>
+            <div class="sol-item">
+              <div class="sol-tick">✅</div>
+              <div><div class="sol-text">Relational DB Schema</div><div style="font-size:12px;color:var(--text-2);">9 core tables, 4 SQL Views, Security_Log &amp; Audit_Log in MySQL</div></div>
+            </div>
+            <div class="sol-item">
+              <div class="sol-tick">⚠️</div>
+              <div><div class="sol-text">Payment Gateway (Simulated)</div><div style="font-size:12px;color:var(--text-2);">Strategies are fully implemented but use mock data — no live gateway</div></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);border:1.5px solid #6ee7b7;border-radius:12px;padding:12px 18px;text-align:center;">
+          <p style="font-size:14.5px;font-weight:700;color:#065f46;">🎉 All core requirements delivered. Design patterns correctly applied. Known issues documented and resolved.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         SLIDE 11 — WORK SEGREGATION
+    ════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-11">
+      <div class="slide-header">
+        <div class="icon">👥</div>
+        <h2>Work Segregation</h2>
+        <span class="slide-num">11 / 11</span>
+      </div>
+      <div class="slide-body" style="gap:10px;">
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:170px;">Member</th>
+              <th>Responsibilities</th>
+              <th style="width:120px;">Pattern / Area</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Member 1</strong><br><span style="font-size:12px;color:var(--text-3);">Team Lead</span></td>
+              <td>System architecture design, routing (index.php), bootstrap / PSR-4 autoloader, AuthController, AuthMiddleware, Database schema design &amp; SQL migrations</td>
+              <td><span class="badge badge-blue">Singleton</span> <span class="badge badge-slate">Architecture</span></td>
+            </tr>
+            <tr>
+              <td><strong>Member 2</strong></td>
+              <td>User authentication flows — UserLoginService, UserRegistrationService, UserRepository, UserValidator, SessionManager, PasswordResetService, UserMailer, SecurityLogger</td>
+              <td><span class="badge badge-slate">Auth / Security</span></td>
+            </tr>
+            <tr>
+              <td><strong>Member 3</strong></td>
+              <td>Payment subsystem — PaymentStrategy interface, CreditCardPayment, EWalletPayment, FPXBankingPayment, CashOnDeliveryPayment, CheckoutSession, OrderRepository, checkout.php view</td>
+              <td><span class="badge badge-green">Strategy</span></td>
+            </tr>
+            <tr>
+              <td><strong>Member 4</strong></td>
+              <td>Stock Observer system — StockSubjectInterface, StockObserverInterface, ProductStockSubject, CartObserver, StockObserverRepository, cart.php / observer integration</td>
+              <td><span class="badge badge-amber">Observer</span></td>
+            </tr>
+            <tr>
+              <td><strong>Member 5</strong></td>
+              <td>Frontend &amp; catalogue — homepage.php, catalogue_view.php, likes.php, CatalogController, ProductRepository, CartRepository, favourites feature, CSS styling</td>
+              <td><span class="badge badge-slate">UI / Frontend</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="background:#f0f4ff;border-radius:10px;border:1px solid #c7d7fa;padding:12px 18px;">
+          <p style="font-size:13px;color:#1e40af;font-weight:600;margin-bottom:4px;">📋 Collaboration Notes</p>
+          <p style="font-size:13px;color:var(--text-2);">All members collaborated on code review, bug fixing (cart scope fix, .htaccess routing, sign-out redirect), and integration testing. Version control managed via Git.</p>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /slide-container -->
+
+  <!-- Controls -->
+  <div id="controls">
+    <button class="ctrl-btn" id="btn-prev" onclick="changeSlide(-1)" title="Previous">‹</button>
+    <span id="slide-counter">1 / 11</span>
+    <button class="ctrl-btn" id="btn-next" onclick="changeSlide(1)" title="Next">›</button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+  const TOTAL = 11;
+  let current = 1;
+
+  function changeSlide(dir) {
+    const next = current + dir;
+    if (next < 1 || next > TOTAL) return;
+    document.getElementById('slide-' + current).classList.remove('active');
+    current = next;
+    document.getElementById('slide-' + current).classList.add('active');
+    document.getElementById('slide-counter').textContent = current + ' / ' + TOTAL;
+    document.getElementById('progress-bar').style.width = ((current / TOTAL) * 100) + '%';
+    document.getElementById('btn-prev').disabled = current === 1;
+    document.getElementById('btn-next').disabled = current === TOTAL;
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') changeSlide(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp') changeSlide(-1);
+  });
+
+  // Init
+  document.getElementById('btn-prev').disabled = true;
+  document.getElementById('progress-bar').style.width = ((1 / TOTAL) * 100) + '%';
+</script>
+</body>
+</html>

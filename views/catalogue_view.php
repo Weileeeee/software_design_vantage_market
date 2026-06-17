@@ -284,14 +284,26 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
                 if ($p['stock_level'] == 0) { $stockClass = 'stock-out'; $stockText = 'Out of Stock'; }
                 elseif ($p['stock_level'] <= 10) { $stockClass = 'stock-low'; $stockText = 'Low Stock'; }
                 
-                $inCart = false;
+                $cartQty = 0;
                 foreach (($cartItems ?? []) as $ci) {
-                    if ($ci['product_id'] == $p['product_id']) { $inCart = true; break; }
+                    if ($ci['product_id'] == $p['product_id']) { 
+                        $cartQty = (int)$ci['quantity'];
+                        break; 
+                    }
                 }
+                $inCart = $cartQty > 0;
+                $maxReached = $p['stock_level'] > 0 && $cartQty >= $p['stock_level'];
               ?>
               <div class="product-card">
-                <div class="product-img">
-                  <i class="fas fa-box-open"></i>
+                <div class="product-img" <?= !empty($p['image_url']) ? '' : '' ?>>
+                  <?php if (!empty($p['image_url'])): ?>
+                    <img src="<?= htmlspecialchars($p['image_url']) ?>" alt="<?= htmlspecialchars($p['title']) ?>"
+                         style="width:100%;height:100%;object-fit:cover;"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <i class="fas fa-box-open" style="display:none;"></i>
+                  <?php else: ?>
+                    <i class="fas fa-box-open"></i>
+                  <?php endif; ?>
                 </div>
                 <div class="product-body">
                   <h6 class="product-title"><?= htmlspecialchars($p['title']) ?></h6>
@@ -302,8 +314,10 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
                     <div style="display: flex; gap: 8px;">
                       <form method="POST" action="/cart/add" style="flex: 1;">
                         <input type="hidden" name="product_id" value="<?= $p['product_id'] ?>">
-                        <button type="submit" class="btn-add" style="width:100%;" <?= $p['stock_level'] == 0 ? 'disabled' : '' ?>>
-                          <?php if ($inCart): ?>
+                        <button type="submit" class="btn-add" style="width:100%;" <?= ($p['stock_level'] == 0 || $maxReached) ? 'disabled' : '' ?>>
+                          <?php if ($maxReached): ?>
+                            <i class="fas fa-ban"></i> Max In Cart
+                          <?php elseif ($inCart): ?>
                             <i class="fas fa-plus"></i> Add Another
                           <?php else: ?>
                             <i class="fas fa-shopping-cart text-primary mr-1"></i> Add To Cart

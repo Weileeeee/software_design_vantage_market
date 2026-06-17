@@ -5,7 +5,7 @@ declare(strict_types=1);
 /** @var string $userType */
 /** @var string $userName */
 $cartItems = $cartItems ?? [];
-$cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0.0);
+$cartTotal = array_reduce($cartItems, fn($sum, $item) => $sum + (($item['stock_level'] > 0 ? $item['price'] * $item['quantity'] : 0)), 0.0);
 
 // Group items by seller
 $itemsBySeller = [];
@@ -49,6 +49,9 @@ foreach ($cartItems as $item) {
     .actions-cell { text-align: center; }
     .action-btn { background: none; border: none; color: #999; cursor: pointer; font-size: 14px; transition: 0.2s; }
     .action-btn:hover { color: #ff6b6b; }
+    .product-item.unavailable { opacity: 0.55; background: #fafafa; }
+    .unavailable-badge { display: inline-block; background: #ffe0e0; color: #c62828; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-top: 4px; letter-spacing: 0.3px; }
+    .qty-btn:disabled, .qty-input:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
     .table-header { display: grid; grid-template-columns: 60px 1fr 100px 100px 100px 80px; gap: 15px; padding: 15px; background: #fafafa; border-bottom: 1px solid #e0e0e0; font-size: 13px; font-weight: 600; color: #666; }
     .cart-summary { background: white; padding: 20px; border-radius: 4px; position: sticky; top: 20px; }
     .summary-row { display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0; }
@@ -192,25 +195,40 @@ foreach ($cartItems as $item) {
                         <div>Actions</div>
                     </div>
 
-                    <?php foreach ($items as $index => $item): ?>
-                        <div class="product-item">
-                            <input type="checkbox" class="item-check" data-item-id="<?= $index ?>" data-product-id="<?= $item['product_id'] ?>" data-price="<?= $item['price'] ?>" data-qty="<?= $item['quantity'] ?>">
+                    <?php foreach ($items as $index => $item):
+                        $outOfStock = (int)($item['stock_level'] ?? 1) <= 0;
+                    ?>
+                        <div class="product-item<?= $outOfStock ? ' unavailable' : '' ?>">
+                            <input type="checkbox" class="item-check"
+                                data-item-id="<?= $index ?>"
+                                data-product-id="<?= $item['product_id'] ?>"
+                                data-price="<?= $item['price'] ?>"
+                                data-qty="<?= $item['quantity'] ?>"
+                                data-out-of-stock="<?= $outOfStock ? '1' : '0' ?>"
+                                <?= $outOfStock ? 'disabled title="Item is out of stock"' : '' ?>>
                             <div class="product-info">
                                 <div class="product-title"><?= htmlspecialchars($item['title']) ?></div>
                                 <div class="product-seller">by <?= htmlspecialchars($seller) ?></div>
+                                <?php if ($outOfStock): ?>
+                                    <span class="unavailable-badge">⚠ Unavailable</span>
+                                <?php endif; ?>
                             </div>
                             <div class="price-cell">
                                 <div class="unit-price">RM <?= number_format((float)$item['price'], 2) ?></div>
                             </div>
                             <div>
                                 <div class="quantity-control">
-                                    <button type="button" class="qty-btn" onclick="updateQty(<?= $index ?>, -1)">−</button>
-                                    <input type="number" class="qty-input" value="<?= $item['quantity'] ?>" min="1" data-item="<?= $index ?>">
-                                    <button type="button" class="qty-btn" onclick="updateQty(<?= $index ?>, 1)">+</button>
+                                    <button type="button" class="qty-btn" onclick="updateQty(<?= $index ?>, -1)" <?= $outOfStock ? 'disabled' : '' ?>>−</button>
+                                    <input type="number" class="qty-input" value="<?= $item['quantity'] ?>" min="1" max="<?= $item['stock_level'] ?>" data-item="<?= $index ?>" <?= $outOfStock ? 'disabled' : '' ?>>
+                                    <button type="button" class="qty-btn" onclick="updateQty(<?= $index ?>, 1)" <?= $outOfStock ? 'disabled' : '' ?>>+</button>
                                 </div>
                             </div>
                             <div class="price-cell">
-                                <div class="total-price">RM <?= number_format((float)$item['price'] * $item['quantity'], 2) ?></div>
+                                <?php if ($outOfStock): ?>
+                                    <div class="total-price" style="color:#bbb;">—</div>
+                                <?php else: ?>
+                                    <div class="total-price" data-item-price="<?= $index ?>">RM <?= number_format((float)$item['price'] * $item['quantity'], 2) ?></div>
+                                <?php endif; ?>
                             </div>
                             <div class="actions-cell">
                                 <button type="button" class="action-btn" title="Delete" onclick="deleteItem(<?= $item['product_id'] ?>, this)">
@@ -284,10 +302,61 @@ foreach ($cartItems as $item) {
   <script>
     function updateQty(index, change) {
         const input = document.querySelector(`input[data-item="${index}"]`);
+        if (!input) return;
+        const max = parseInt(input.getAttribute('max')) || Infinity;
         let value = parseInt(input.value) + change;
+        
         if (value < 1) value = 1;
+        if (value > max) {
+            value = max;
+            if (typeof showCartToast === 'function') {
+                showCartToast('Maximum stock reached for this item.');
+            }
+        }
         input.value = value;
+        
+        // Update the visual total price for this row
+        const cb = document.querySelector(`.item-check[data-item-id="${index}"]`);
+        if (cb) {
+            const price = parseFloat(cb.dataset.price) || 0;
+            const totalCell = document.querySelector(`.total-price[data-item-price="${index}"]`);
+            if (totalCell) {
+                totalCell.textContent = 'RM ' + (price * value).toFixed(2);
+            }
+        }
+
+        // Trigger a change event so other listeners (like recalcSummary) catch it
+        input.dispatchEvent(new Event('change'));
     }
+
+    // Attach event listeners to quantity inputs to enforce max limits when typing manually
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.qty-input').forEach(input => {
+            input.addEventListener('change', function() {
+                const max = parseInt(this.getAttribute('max')) || Infinity;
+                let val = parseInt(this.value);
+                if (isNaN(val) || val < 1) val = 1;
+                if (val > max) {
+                    val = max;
+                    if (typeof showCartToast === 'function') {
+                        showCartToast('Maximum stock reached for this item.');
+                    }
+                }
+                this.value = val;
+                
+                // Update the visual total price for this row
+                const index = this.dataset.item;
+                const cb = document.querySelector(`.item-check[data-item-id="${index}"]`);
+                if (cb) {
+                    const price = parseFloat(cb.dataset.price) || 0;
+                    const totalCell = document.querySelector(`.total-price[data-item-price="${index}"]`);
+                    if (totalCell) {
+                        totalCell.textContent = 'RM ' + (price * val).toFixed(2);
+                    }
+                }
+            });
+        });
+    });
 
     function deleteItem(productId, btn) {
         if (!confirm('Remove this item from your cart?')) return;
@@ -411,6 +480,9 @@ foreach ($cartItems as $item) {
       hiddenContainer.innerHTML = '';
 
       checked.forEach(cb => {
+        // Skip out-of-stock items (should not be checkable, but guard anyway)
+        if (cb.dataset.outOfStock === '1') return;
+
         const price = parseFloat(cb.dataset.price) || 0;
         const qty   = parseInt(cb.dataset.qty)    || 1;
         subtotal += price * qty;
@@ -422,6 +494,13 @@ foreach ($cartItems as $item) {
         inp.name   = 'selected_products[]';
         inp.value  = cb.dataset.productId;
         hiddenContainer.appendChild(inp);
+
+        // Add hidden input for the quantities as well
+        const inpQty = document.createElement('input');
+        inpQty.type  = 'hidden';
+        inpQty.name  = `quantities[${cb.dataset.productId}]`;
+        inpQty.value = qty;
+        hiddenContainer.appendChild(inpQty);
       });
 
       const shipping = count > 0 ? 5.00 : 0;
@@ -451,6 +530,12 @@ foreach ($cartItems as $item) {
     // Attach recalc to every item checkbox
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.item-check').forEach(cb => {
+        // Prevent out-of-stock items from ever being checked
+        if (cb.dataset.outOfStock === '1') {
+          cb.checked = false;
+          cb.disabled = true;
+          return;
+        }
         cb.addEventListener('change', () => {
           // Keep data-qty in sync with the quantity input
           const row = cb.closest('.product-item');
