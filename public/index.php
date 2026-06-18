@@ -221,7 +221,11 @@ match (true) {
 
             // Persist selected items so CheckoutController can use them
             $_SESSION['vm_checkout_items'] = $filtered;
-            header('Location: /checkout');
+
+            // Carry the promo code forward (if one was applied on the cart page)
+            $promoCode = trim($_POST['promo_code'] ?? '');
+            $redirectUrl = '/checkout' . ($promoCode !== '' ? '?promo_code=' . urlencode($promoCode) : '');
+            header("Location: $redirectUrl");
             exit;
         })(),
 
@@ -229,7 +233,7 @@ match (true) {
         => (function () use ($container, $middleware): void {
             $middleware->requireAuth('/checkout');
             $db = \VantageMarket\Config\Database::getInstance();
-            $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
+            $controller = new CheckoutController($db, $container['session'], $container['cartRepository'], $container['stockSubject'], $container['productRepository']);
             $controller->index();
         })(),
 
@@ -237,7 +241,7 @@ match (true) {
         => (function () use ($container, $middleware): void {
             $middleware->requireAuth('/checkout');
             $db = \VantageMarket\Config\Database::getInstance();
-            $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
+            $controller = new CheckoutController($db, $container['session'], $container['cartRepository'], $container['stockSubject'], $container['productRepository']);
             $controller->processCheckout();
         })(),
 
@@ -555,6 +559,42 @@ match (true) {
                 $container['session'],
             );
             $controller->advance((int) $m[1]);
+        })(),
+
+    // Validate a promo code and return JSON (used by cart page & checkout page
+    // for live discount preview before the order is actually placed)
+    $path === '/promo/validate' && $method === 'POST'
+        => (function () use ($container): void {
+            header('Content-Type: application/json; charset=utf-8');
+            $code = trim($_POST['code'] ?? '');
+
+            if ($code === '') {
+                echo json_encode(['valid' => false, 'message' => 'Please enter a promo code.']);
+                exit;
+            }
+
+            $db = \VantageMarket\Config\Database::getInstance();
+            $stmt = $db->prepare(
+                "SELECT * FROM Promotions WHERE code = :code AND is_active = 1 AND expiry_date >= CURDATE()"
+            );
+            $stmt->execute(['code' => $code]);
+            $promo = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$promo) {
+                echo json_encode(['valid' => false, 'message' => "Promo code \"$code\" is invalid or expired."]);
+                exit;
+            }
+
+            echo json_encode([
+                'valid'          => true,
+                'code'           => $promo['code'],
+                'discount_type'  => $promo['discount_type'],
+                'discount_value' => (float) $promo['discount_value'],
+                'message'        => $promo['discount_type'] === 'percentage'
+                    ? "{$promo['discount_value']}% off applied!"
+                    : "RM " . number_format((float)$promo['discount_value'], 2) . " off applied!",
+            ]);
+            exit;
         })(),
 
     // Checkout success page

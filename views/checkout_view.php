@@ -149,8 +149,11 @@
                         <h5 class="fw-bold mb-4">Apply Promotions (UC09)</h5>
                         <div class="mb-4">
                             <label class="form-label small text-muted text-uppercase fw-bold">Promo Code</label>
-                            <input type="text" name="promo_code" class="form-control form-control-custom mb-2" placeholder="e.g. VANTAGE20">
-                            <small style="color: #94a3b8;">Try using 'VANTAGE20' for 20% off your entire order.</small>
+                            <div class="d-flex gap-2">
+                              <input type="text" name="promo_code" id="checkout-promo-input" class="form-control form-control-custom mb-2" placeholder="e.g. VANTAGE20" value="<?= htmlspecialchars($_GET['promo_code'] ?? '') ?>">
+                              <button type="button" id="checkout-promo-apply" class="btn btn-sm" style="background:#ff6b6b;color:white;border:none;border-radius:6px;padding:0 16px;height:42px;white-space:nowrap;">Apply</button>
+                            </div>
+                            <small id="checkout-promo-feedback" style="color: #94a3b8; display:block;">Try using 'VANTAGE20' for 20% off your entire order.</small>
                         </div>
                     </form>
                 </div>
@@ -188,15 +191,19 @@
 
                     <div class="d-flex justify-content-between mb-2">
                         <span style="color: #94a3b8;">Subtotal</span>
-                        <span class="text-white fw-semibold">RM <?= number_format($cartSubtotal, 2) ?></span>
+                        <span class="text-white fw-semibold" id="checkout-subtotal">RM <?= number_format($cartSubtotal, 2) ?></span>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                         <span style="color: #94a3b8;">Shipping</span>
                         <span class="text-white fw-semibold">RM 5.00</span>
                     </div>
+                    <div class="d-flex justify-content-between mb-2" id="checkout-discount-row" style="display:none;">
+                        <span style="color: #94a3b8;">Discount</span>
+                        <span class="fw-semibold" id="checkout-discount" style="color:#27ae60;">-RM 0.00</span>
+                    </div>
                     <div class="d-flex justify-content-between mb-4">
                         <span style="color: #94a3b8;">Total</span>
-                        <span style="color:#ff6b6b;font-weight:700;font-size:18px;">RM <?= number_format($cartSubtotal + 5, 2) ?></span>
+                        <span style="color:#ff6b6b;font-weight:700;font-size:18px;" id="checkout-total">RM <?= number_format($cartSubtotal + 5, 2) ?></span>
                     </div>
 
                     <hr style="border-color: #475569;" class="mb-4">
@@ -240,6 +247,71 @@
                 e.preventDefault();
                 form.reportValidity(); // Tries to show native tooltip
                 alert('Please make sure you have filled out the Shipping Address and selected a Payment Method.');
+            }
+        });
+
+        // ── Live promo code preview ─────────────────────────
+        const checkoutSubtotal = <?= json_encode($cartSubtotal) ?>;
+        const checkoutShipping = 5.00;
+
+        function updateCheckoutTotals(discount) {
+            const total = Math.max(checkoutSubtotal + checkoutShipping - discount, 0);
+            document.getElementById('checkout-total').textContent = 'RM ' + total.toFixed(2);
+
+            const row = document.getElementById('checkout-discount-row');
+            if (discount > 0) {
+                document.getElementById('checkout-discount').textContent = '-RM ' + discount.toFixed(2);
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+
+        document.getElementById('checkout-promo-apply').addEventListener('click', async () => {
+            const input    = document.getElementById('checkout-promo-input');
+            const feedback = document.getElementById('checkout-promo-feedback');
+            const code     = input.value.trim();
+
+            if (!code) {
+                feedback.style.color = '#fca5a5';
+                feedback.textContent = 'Please enter a promo code.';
+                updateCheckoutTotals(0);
+                return;
+            }
+
+            try {
+                const res  = await fetch('/promo/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'code=' + encodeURIComponent(code)
+                });
+                const data = await res.json();
+
+                if (data.valid) {
+                    const discount = data.discount_type === 'percentage'
+                        ? checkoutSubtotal * (data.discount_value / 100)
+                        : data.discount_value;
+                    const finalDiscount = Math.min(discount, checkoutSubtotal);
+
+                    feedback.style.color = '#86efac';
+                    feedback.textContent = '✓ ' + data.message;
+                    updateCheckoutTotals(finalDiscount);
+                } else {
+                    feedback.style.color = '#fca5a5';
+                    feedback.textContent = data.message;
+                    updateCheckoutTotals(0);
+                }
+            } catch (e) {
+                feedback.style.color = '#fca5a5';
+                feedback.textContent = 'Could not validate code. Please try again.';
+            }
+        });
+
+        // If a promo_code was carried over from the cart page, auto-apply it on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const preInput = document.getElementById('checkout-promo-input');
+            if (preInput.value.trim()) {
+                document.getElementById('checkout-promo-apply').click();
             }
         });
     </script>

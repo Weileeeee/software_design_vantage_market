@@ -31,8 +31,9 @@ class CatalogController
             $params['search'] = "%" . $search . "%";
         }
 
-        // 4. Filter by Maximum Price
-        if (!empty($maxPrice)) {
+        // 4. Filter by Maximum Price — only filter when the user actually
+        //    submitted a value (so first page load shows everything)
+        if ($maxPrice !== null && $maxPrice !== '') {
             $sql .= " AND v.price <= :max_price";
             $params['max_price'] = $maxPrice;
         }
@@ -46,6 +47,11 @@ class CatalogController
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         $products = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Fetch the full categories list (for the sidebar filter checkboxes —
+        // must come from the DB, not be hardcoded, since IDs can change)
+        $catStmt = $this->db->query("SELECT category_id, category_name FROM Categories ORDER BY category_name ASC");
+        $allCategories = $catStmt->fetchAll(\PDO::FETCH_ASSOC);
 
         // We also need cart details for the MultiShop header/sidebar if we want to show it in the layout!
         // We will pass the cart items from the router down to the view, or fetch them here if we had $container.

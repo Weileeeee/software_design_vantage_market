@@ -5,6 +5,8 @@ namespace VantageMarket\Controllers;
 use Exception;
 use PDO;
 use VantageMarket\Services\CheckoutSession;
+use VantageMarket\Services\ProductRepository;
+use VantageMarket\Services\ProductStockSubject;
 use VantageMarket\Strategy\CashOnDeliveryPayment;
 use VantageMarket\Strategy\CreditCardPayment;
 use VantageMarket\Strategy\EWalletPayment;
@@ -15,13 +17,18 @@ class CheckoutController
     private $db;
     private $session;
     private $cartRepo;
+    private ProductStockSubject $stockSubject;
+    private ProductRepository $productRepo;
 
-    // We inject the database, session manager, and cart repository explicitly
-    public function __construct($db, $session, $cartRepo)
+    // We inject the database, session manager, cart repository, the
+    // Observer-pattern subject, and the product repository explicitly
+    public function __construct($db, $session, $cartRepo, ProductStockSubject $stockSubject, ProductRepository $productRepo)
     {
         $this->db = $db;
         $this->session = $session;
         $this->cartRepo = $cartRepo;
+        $this->stockSubject = $stockSubject;
+        $this->productRepo = $productRepo;
     }
 
     public function index()
@@ -196,17 +203,16 @@ class CheckoutController
                     'price' => $item['price']
                 ]);
 
-                // Deduct the inventory
-                $stmt = $this->db->prepare("UPDATE Products SET stock_level = stock_level - :qty WHERE product_id = :pid");
-                $stmt->execute([
-                    'qty' => $item['quantity'],
-                    'pid' => $item['product_id']
-                ]);
+                // Deduct the inventory AND notify any carts watching this
+                // product if it just hit zero (Observer pattern)
+                $this->stockSubject->decrementAndNotify($item['product_id'], $item['quantity'], $this->productRepo);
             }
 
-            // C. Remove only the ordered items from cart (other items remain)
+            // C. Remove only the ordered items from cart (other items remain),
+            // and stop watching this product for stock changes (Observer pattern)
             foreach ($validatedItems as $item) {
                 $this->cartRepo->removeItem($cart->cartId, $item['product_id']);
+                $this->stockSubject->detach($item['product_id'], $cart->cartId);
             }
 
             // ==========================================

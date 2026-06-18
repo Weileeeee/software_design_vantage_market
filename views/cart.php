@@ -262,7 +262,11 @@ foreach ($cartItems as $item) {
 
             <div class="voucher-section">
                 <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">Voucher / Discount</label>
-                <input type="text" class="voucher-input" placeholder="Add shop voucher code" readonly>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="voucher-input" class="voucher-input" placeholder="Add shop voucher code" style="flex:1;">
+                  <button type="button" id="voucher-apply-btn" class="btn-apply" style="padding:8px 14px; white-space:nowrap;">Apply</button>
+                </div>
+                <p id="voucher-feedback" style="font-size:12px; margin:6px 0 0; display:none;"></p>
             </div>
 
             <div class="summary-row">
@@ -277,7 +281,7 @@ foreach ($cartItems as $item) {
 
             <div class="summary-row">
                 <span class="summary-label">Discount</span>
-                <span class="summary-value">-RM 0.00</span>
+                <span class="summary-value" id="summary-discount" style="color:#27ae60;">-RM 0.00</span>
             </div>
 
             <div class="summary-row total-row">
@@ -470,6 +474,8 @@ foreach ($cartItems as $item) {
     });
 
     // ── Selected-items summary recalculator ─────────────────
+    let appliedPromo = null; // { code, discount_type, discount_value }
+
     function recalcSummary() {
       const checked = document.querySelectorAll('.item-check:checked');
       let subtotal = 0;
@@ -503,13 +509,34 @@ foreach ($cartItems as $item) {
         hiddenContainer.appendChild(inpQty);
       });
 
+      // Carry the applied promo code forward into the checkout flow
+      if (appliedPromo) {
+        const inpPromo = document.createElement('input');
+        inpPromo.type  = 'hidden';
+        inpPromo.name  = 'promo_code';
+        inpPromo.value = appliedPromo.code;
+        hiddenContainer.appendChild(inpPromo);
+      }
+
       const shipping = count > 0 ? 5.00 : 0;
-      const total    = subtotal + shipping;
+
+      let discount = 0;
+      if (appliedPromo && count > 0) {
+        if (appliedPromo.discount_type === 'percentage') {
+          discount = subtotal * (appliedPromo.discount_value / 100);
+        } else {
+          discount = appliedPromo.discount_value;
+        }
+        discount = Math.min(discount, subtotal); // never go negative
+      }
+
+      const total = Math.max(subtotal + shipping - discount, 0);
 
       document.getElementById('summary-count').textContent    = count;
       document.getElementById('summary-plural').textContent   = count === 1 ? '' : 's';
       document.getElementById('summary-subtotal').textContent = 'RM ' + subtotal.toFixed(2);
       document.getElementById('summary-shipping').textContent = 'RM ' + shipping.toFixed(2);
+      document.getElementById('summary-discount').textContent = '-RM ' + discount.toFixed(2);
       document.getElementById('summary-total').textContent    = 'RM ' + total.toFixed(2);
 
       const btn  = document.getElementById('checkout-btn');
@@ -526,6 +553,65 @@ foreach ($cartItems as $item) {
         hint.style.display     = 'block';
       }
     }
+
+    // ── Voucher / promo code apply button ─────────────────
+    document.getElementById('voucher-apply-btn').addEventListener('click', async () => {
+      const input    = document.getElementById('voucher-input');
+      const feedback = document.getElementById('voucher-feedback');
+      const code     = input.value.trim();
+
+      if (!code) {
+        feedback.style.display = 'block';
+        feedback.style.color   = '#c62828';
+        feedback.textContent   = 'Please enter a code.';
+        return;
+      }
+
+      try {
+        const res  = await fetch('/promo/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'code=' + encodeURIComponent(code)
+        });
+        const data = await res.json();
+
+        feedback.style.display = 'block';
+        if (data.valid) {
+          appliedPromo = {
+            code: data.code,
+            discount_type: data.discount_type,
+            discount_value: data.discount_value
+          };
+          feedback.style.color = '#27ae60';
+          feedback.textContent = '✓ ' + data.message;
+          input.disabled = true;
+          document.getElementById('voucher-apply-btn').textContent = 'Remove';
+          document.getElementById('voucher-apply-btn').dataset.applied = '1';
+        } else {
+          appliedPromo = null;
+          feedback.style.color = '#c62828';
+          feedback.textContent = data.message;
+        }
+        recalcSummary();
+      } catch (e) {
+        feedback.style.display = 'block';
+        feedback.style.color   = '#c62828';
+        feedback.textContent   = 'Could not validate code. Please try again.';
+      }
+    });
+
+    // Allow removing an applied promo
+    document.getElementById('voucher-apply-btn').addEventListener('click', function() {
+      if (this.dataset.applied === '1') {
+        appliedPromo = null;
+        document.getElementById('voucher-input').disabled = false;
+        document.getElementById('voucher-input').value = '';
+        document.getElementById('voucher-feedback').style.display = 'none';
+        this.textContent = 'Apply';
+        this.dataset.applied = '0';
+        recalcSummary();
+      }
+    }, { capture: true });
 
     // Attach recalc to every item checkbox
     document.addEventListener('DOMContentLoaded', () => {

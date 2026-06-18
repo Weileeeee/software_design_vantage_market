@@ -237,7 +237,7 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
 
             <!-- Price Filter -->
             <div class="filter-section">
-              <?php $current_max = htmlspecialchars($_GET['max_price'] ?? '500'); ?>
+              <?php $current_max = htmlspecialchars($_GET['max_price'] ?? '1000'); ?>
               <div class="d-flex justify-content-between align-center mb-2">
                 <span class="filter-label" style="margin:0;">Max Price</span>
                 <span style="font-weight: 700; color: var(--text-dark);">RM <span id="priceValue"><?= $current_max ?></span></span>
@@ -249,18 +249,13 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
             <div class="filter-section">
               <span class="filter-label">Categories</span>
               <div class="checkbox-group">
-                <label class="checkbox-item">
-                  <input type="checkbox" name="category[]" value="1" <?= in_array('1', $_GET['category'] ?? []) ? 'checked' : '' ?>>
-                  Audio & Earbuds
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" name="category[]" value="2" <?= in_array('2', $_GET['category'] ?? []) ? 'checked' : '' ?>>
-                  Computer Peripherals
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" name="category[]" value="3" <?= in_array('3', $_GET['category'] ?? []) ? 'checked' : '' ?>>
-                  Desk Accessories
-                </label>
+                <?php $selectedCats = $_GET['category'] ?? []; ?>
+                <?php foreach ($allCategories as $cat): ?>
+                  <label class="checkbox-item">
+                    <input type="checkbox" name="category[]" value="<?= $cat['category_id'] ?>" <?= in_array((string)$cat['category_id'], $selectedCats) ? 'checked' : '' ?>>
+                    <?= htmlspecialchars($cat['category_name']) ?>
+                  </label>
+                <?php endforeach; ?>
               </div>
             </div>
 
