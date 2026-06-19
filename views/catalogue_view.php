@@ -396,8 +396,16 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
     const FAVES_KEY = 'vm_favourites';
 
     function getFavourites() {
-      try { return JSON.parse(localStorage.getItem(FAVES_KEY)) || []; }
-      catch (_) { return []; }
+      try {
+        const raw = JSON.parse(localStorage.getItem(FAVES_KEY)) || [];
+        // Migrate old format [{id, title}] to flat [id] array
+        if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
+          const migrated = raw.map(f => f.id);
+          localStorage.setItem(FAVES_KEY, JSON.stringify(migrated));
+          return migrated;
+        }
+        return raw;
+      } catch (_) { return []; }
     }
 
     function saveFavourites(faves) {
@@ -406,10 +414,10 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
 
     function toggleFavourite(btn, productId, title) {
       let faves = getFavourites();
-      const idx = faves.findIndex(f => f.id === productId);
+      const idx = faves.indexOf(productId);
 
       if (idx === -1) {
-        faves.push({ id: productId, title });
+        faves.push(productId);
         btn.classList.add('active');
         btn.title = 'Remove from Favourites';
         showFaveToast('❤️ Added to Favourites: ' + title);
@@ -441,7 +449,7 @@ $cartTotal = array_reduce($cartItems ?? [], fn($sum, $item) => $sum + ($item['pr
       const faves = getFavourites();
       document.querySelectorAll('.btn-favourite').forEach(btn => {
         const pid = parseInt(btn.dataset.productId);
-        if (faves.some(f => f.id === pid)) {
+        if (faves.includes(pid)) {
           btn.classList.add('active');
           btn.title = 'Remove from Favourites';
         }

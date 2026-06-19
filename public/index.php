@@ -233,7 +233,7 @@ match (true) {
         => (function () use ($container, $middleware): void {
             $middleware->requireAuth('/checkout');
             $db = \VantageMarket\Config\Database::getInstance();
-            $controller = new CheckoutController($db, $container['session'], $container['cartRepository'], $container['stockSubject'], $container['productRepository']);
+            $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
             $controller->index();
         })(),
 
@@ -241,7 +241,7 @@ match (true) {
         => (function () use ($container, $middleware): void {
             $middleware->requireAuth('/checkout');
             $db = \VantageMarket\Config\Database::getInstance();
-            $controller = new CheckoutController($db, $container['session'], $container['cartRepository'], $container['stockSubject'], $container['productRepository']);
+            $controller = new CheckoutController($db, $container['session'], $container['cartRepository']);
             $controller->processCheckout();
         })(),
 
@@ -383,6 +383,32 @@ match (true) {
     // Protected API — returns current user info
     $path === '/api/me'          && $method === 'GET'
         => $auth->me(),
+
+    // Fetch product details by a comma-separated list of IDs (used by Likes page)
+    $path === '/api/products-by-ids' && $method === 'GET'
+        => (function () use ($container): void {
+            header('Content-Type: application/json; charset=utf-8');
+            $rawIds  = $_GET['ids'] ?? '';
+            $ids     = array_filter(array_map('intval', explode(',', $rawIds)));
+            if (empty($ids)) {
+                echo json_encode([]);
+                exit;
+            }
+            $db          = \VantageMarket\Config\Database::getInstance();
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $db->prepare(
+                "SELECT p.product_id, p.title, p.price, p.stock_level,
+                        p.brand, p.image_url, c.category_name
+                 FROM Products p
+                 LEFT JOIN Categories c ON c.category_id = p.category_id
+                 WHERE p.product_id IN ($placeholders)"
+            );
+            $stmt->execute(array_values($ids));
+            $products = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            while (ob_get_level()) ob_end_clean();
+            echo json_encode($products);
+            exit;
+        })(),
 
 
     // ==========================================================

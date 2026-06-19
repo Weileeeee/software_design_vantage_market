@@ -63,7 +63,7 @@ foreach ($cartItems as $item) {
     .checkout-btn { width: 100%; background: #ff6b6b; color: white; border: none; padding: 12px; font-weight: 600; cursor: pointer; margin-top: 15px; border-radius: 4px; transition: 0.2s; }
     .checkout-btn:hover { background: #ff5252; }
     .voucher-section { margin-bottom: 15px; }
-    .voucher-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+    .voucher-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; box-sizing: border-box; }
     .empty-cart { text-align: center; padding: 60px 20px; color: #999; }
     .empty-cart i { font-size: 48px; margin-bottom: 15px; color: #ddd; }
     .bulk-actions { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #e0e0e0; }
@@ -262,11 +262,9 @@ foreach ($cartItems as $item) {
 
             <div class="voucher-section">
                 <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">Voucher / Discount</label>
-                <div style="display:flex; gap:6px;">
-                  <input type="text" id="voucher-input" class="voucher-input" placeholder="Add shop voucher code" style="flex:1;">
-                  <button type="button" id="voucher-apply-btn" class="btn-apply" style="padding:8px 14px; white-space:nowrap;">Apply</button>
-                </div>
-                <p id="voucher-feedback" style="font-size:12px; margin:6px 0 0; display:none;"></p>
+                <input type="text" id="voucher-input" class="voucher-input" placeholder="Add shop voucher code">
+                <button type="button" id="voucher-apply-btn" style="background:none; border:none; color:#ff6b6b; font-size:12px; font-weight:600; cursor:pointer; padding:6px 0 0; text-decoration:underline;">Apply Code</button>
+                <p id="voucher-feedback" style="font-size:12px; margin:4px 0 0; display:none;"></p>
             </div>
 
             <div class="summary-row">
@@ -383,14 +381,23 @@ foreach ($cartItems as $item) {
     // ── Favourites from localStorage ─────────────────────────
     const FAVES_KEY = 'vm_favourites';
     function getFavourites() {
-        try { return JSON.parse(localStorage.getItem(FAVES_KEY)) || []; } catch (_) { return []; }
+        try {
+            const raw = JSON.parse(localStorage.getItem(FAVES_KEY)) || [];
+            // Migrate old format [{id, title}] → flat [id]
+            if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
+                const migrated = raw.map(f => f.id);
+                localStorage.setItem(FAVES_KEY, JSON.stringify(migrated));
+                return migrated;
+            }
+            return raw;
+        } catch (_) { return []; }
     }
     function saveFavourites(f) { localStorage.setItem(FAVES_KEY, JSON.stringify(f)); }
 
     function addToFavourites(productId, title, btn) {
         let faves = getFavourites();
-        if (!faves.some(f => f.id === productId)) {
-            faves.push({ id: productId, title });
+        if (!faves.includes(productId)) {
+            faves.push(productId);
             saveFavourites(faves);
         }
         if (btn) {
@@ -555,6 +562,13 @@ foreach ($cartItems as $item) {
     }
 
     // ── Voucher / promo code apply button ─────────────────
+    document.getElementById('voucher-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('voucher-apply-btn').click();
+      }
+    });
+
     document.getElementById('voucher-apply-btn').addEventListener('click', async () => {
       const input    = document.getElementById('voucher-input');
       const feedback = document.getElementById('voucher-feedback');
@@ -607,7 +621,7 @@ foreach ($cartItems as $item) {
         document.getElementById('voucher-input').disabled = false;
         document.getElementById('voucher-input').value = '';
         document.getElementById('voucher-feedback').style.display = 'none';
-        this.textContent = 'Apply';
+        this.textContent = 'Apply Code';
         this.dataset.applied = '0';
         recalcSummary();
       }

@@ -10,26 +10,14 @@ namespace VantageMarket\Controllers;
 
 use PDO;
 use VantageMarket\Config\Database;
-use VantageMarket\Services\CartObserver;
-use VantageMarket\Services\CartRepository;
-use VantageMarket\Services\ProductStockSubject;
-use VantageMarket\Services\StockObserverRepository;
 
 final class AdminController
 {
     private PDO $db;
-    private ProductStockSubject $stockSubject;
 
-    public function __construct(?ProductStockSubject $stockSubject = null)
+    public function __construct()
     {
         $this->db = Database::getInstance();
-        // Defaults to a self-built instance so every existing
-        // `new AdminController()` call site keeps working unchanged;
-        // pass one in explicitly to reuse the app's shared instance.
-        $this->stockSubject = $stockSubject ?? new ProductStockSubject(
-            new StockObserverRepository(),
-            new CartObserver(new CartRepository(), new StockObserverRepository())
-        );
     }
 
     // ----------------------------------------------------------
@@ -191,10 +179,6 @@ final class AdminController
                  category_id=:c, brand=:b, sku=:k, image_url=:img, status=:a WHERE product_id=:id'
             )->execute([':t'=>$title,':d'=>$desc,':p'=>$price,':s'=>$stock,
                         ':c'=>$cat,':b'=>$brand,':k'=>$sku,':img'=>$image,':a'=>$active,':id'=>$id]);
-
-            // Stock just changed via the admin dashboard — let any cart
-            // watching this product react (Observer pattern)
-            $this->stockSubject->notify($id, $stock);
 
             $this->auditLog('EDIT_PRODUCT', 'Products', $id,
                 json_encode(['before' => $beforeData,
